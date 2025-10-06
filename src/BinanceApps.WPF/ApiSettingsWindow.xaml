@@ -1,0 +1,282 @@
+<Window x:Class="BinanceApps.WPF.ApiSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="系统设置" Height="600" Width="700"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F8F9FA">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="系统配置设置" 
+                   FontSize="24" FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,20" 
+                   Foreground="#2C3E50"/>
+        
+        <!-- 标签页控件 -->
+        <TabControl Grid.Row="1" Background="White" BorderBrush="#E1E8ED" BorderThickness="1">
+            <!-- API设置标签页 -->
+            <TabItem Header="API设置" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10">
+            <StackPanel>
+                <!-- API Key 输入 -->
+                <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                        CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="API Key" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="#2C3E50" Margin="0,0,0,8"/>
+                        <TextBox x:Name="txtApiKey" Height="35" FontSize="12"
+                                 BorderBrush="#BDC3C7" BorderThickness="1"
+                                 Padding="10,8" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="请输入您的Binance API Key" 
+                                   FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Secret Key 输入 -->
+                <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                        CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="Secret Key" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="#2C3E50" Margin="0,0,0,8"/>
+                        <PasswordBox x:Name="txtSecretKey" Height="35" FontSize="12"
+                                     BorderBrush="#BDC3C7" BorderThickness="1"
+                                     Padding="10,8" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="请输入您的Binance Secret Key" 
+                                   FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 环境选择 -->
+                <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                        CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="交易环境" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="#2C3E50" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="rbProduction" Content="生产环境 (实盘)" 
+                                         FontSize="12" Margin="0,0,20,0" 
+                                         Foreground="#27AE60" IsChecked="True"/>
+                            <RadioButton x:Name="rbTestnet" Content="测试环境 (模拟)" 
+                                         FontSize="12" Foreground="#E74C3C"/>
+                        </StackPanel>
+                        <TextBlock Text="生产环境：真实交易；测试环境：模拟交易" 
+                                   FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 当前状态显示 -->
+                <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                        CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="连接状态" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="#2C3E50" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="statusIndicator" Width="12" Height="12" 
+                                     Fill="#95A5A6" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="txtConnectionStatus" Text="未连接" 
+                                       FontSize="12" Foreground="#7F8C8D"/>
+                        </StackPanel>
+                        <TextBlock x:Name="txtLastTestTime" Text="" 
+                                   FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 测试连接按钮 -->
+                <Button x:Name="btnTestConnection" Content="🔗 测试API连接" 
+                        Height="45" FontSize="14" FontWeight="SemiBold"
+                        Background="#3498DB" Foreground="White" 
+                        BorderThickness="0" Margin="0,0,0,10"
+                        Click="BtnTestConnection_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    CornerRadius="8" BorderThickness="0">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- 系统设置标签页 -->
+            <TabItem Header="系统设置" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10">
+                    <StackPanel>
+                        <!-- 提醒方式设置 -->
+                        <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                                CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="提醒方式设置" FontSize="14" FontWeight="SemiBold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,8"/>
+                                
+                                <!-- 声音提醒 -->
+                                <CheckBox x:Name="chkSoundAlert" Content="启用声音提醒" 
+                                          FontSize="12" Margin="0,0,0,10" 
+                                          Foreground="#2C3E50"/>
+                                
+                                <!-- 虾推啥设置 -->
+                                <StackPanel>
+                                    <CheckBox x:Name="chkPushNotification" Content="启用虾推啥推送通知" 
+                                              FontSize="12" Margin="0,0,0,8" 
+                                              Foreground="#2C3E50" 
+                                              Checked="ChkPushNotification_Checked" 
+                                              Unchecked="ChkPushNotification_Unchecked"/>
+                                    
+                                    <StackPanel x:Name="pnlPushSettings" Visibility="Collapsed" Margin="20,0,0,0">
+                                        <TextBlock Text="虾推啥Token配置:" FontSize="12" 
+                                                   Foreground="#2C3E50" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="txtPushTokens" Height="60" FontSize="12"
+                                                 BorderBrush="#BDC3C7" BorderThickness="1"
+                                                 Padding="8" VerticalContentAlignment="Top"
+                                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                                 Margin="0,0,0,5"/>
+                                        <TextBlock Text="每行一个Token，支持多个账号推送" 
+                                                   FontSize="10" Foreground="#7F8C8D" Margin="0,0,0,5"/>
+                                        
+                                        <TextBlock Text="推送标题:" FontSize="12" 
+                                                   Foreground="#2C3E50" Margin="0,5,0,5"/>
+                                        <TextBox x:Name="txtPushTitle" Height="30" FontSize="12"
+                                                 BorderBrush="#BDC3C7" BorderThickness="1"
+                                                 Padding="8" VerticalContentAlignment="Center"
+                                                 Text="BinanceApps提醒" Margin="0,0,0,5"/>
+                                        
+                                        <!-- 测试推送按钮 -->
+                                        <Button x:Name="btnTestPush" Content="🔔 测试推送" 
+                                                Height="30" Width="100" FontSize="12"
+                                                Background="#17A2B8" Foreground="White" 
+                                                BorderThickness="0" Margin="0,5,0,0"
+                                                HorizontalAlignment="Left"
+                                                Click="BtnTestPush_Click">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" 
+                                                            CornerRadius="4" BorderThickness="0">
+                                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                                        VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- 市场监控设置 -->
+                        <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                                CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="市场监控设置" FontSize="14" FontWeight="SemiBold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,8"/>
+                                
+                                <CheckBox x:Name="chkMarketMonitor" Content="启用市场成交额监控" 
+                                          FontSize="12" Margin="0,0,0,10" 
+                                          Foreground="#2C3E50" 
+                                          Checked="ChkMarketMonitor_Checked" 
+                                          Unchecked="ChkMarketMonitor_Unchecked"/>
+                                
+                                <StackPanel x:Name="pnlMarketMonitorSettings" Visibility="Collapsed" Margin="20,0,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="检查间隔:" 
+                                                   FontSize="12" Foreground="#2C3E50" 
+                                                   VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                        <TextBox x:Name="txtCheckInterval" Grid.Row="0" Grid.Column="1" 
+                                                 Height="25" FontSize="12" Text="30"
+                                                 BorderBrush="#BDC3C7" BorderThickness="1"
+                                                 Padding="5" VerticalContentAlignment="Center" Margin="0,0,5,5"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="分钟" 
+                                                   FontSize="12" Foreground="#7F8C8D" 
+                                                   VerticalAlignment="Center" Margin="0,0,0,5"/>
+                                        
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="成交额阈值:" 
+                                                   FontSize="12" Foreground="#2C3E50" 
+                                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <TextBox x:Name="txtVolumeThreshold" Grid.Row="1" Grid.Column="1" 
+                                                 Height="25" FontSize="12" Text="100"
+                                                 BorderBrush="#BDC3C7" BorderThickness="1"
+                                                 Padding="5" VerticalContentAlignment="Center" Margin="0,0,5,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Text="亿USDT" 
+                                                   FontSize="12" Foreground="#7F8C8D" 
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- 其他系统设置 -->
+                        <Border Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                                CornerRadius="8" Margin="0,0,0,15" Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="其他设置" FontSize="14" FontWeight="SemiBold" 
+                                           Foreground="#2C3E50" Margin="0,0,0,8"/>
+                                
+                                <CheckBox x:Name="chkAutoStart" Content="开机自动启动" 
+                                          FontSize="12" Margin="0,0,0,8" 
+                                          Foreground="#2C3E50"/>
+                                
+                                <CheckBox x:Name="chkMinimizeToTray" Content="最小化到系统托盘" 
+                                          FontSize="12" Margin="0,0,0,8" 
+                                          Foreground="#2C3E50"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+        
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" 
+                    HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="btnCancel" Content="取消" Width="100" Height="35" 
+                    FontSize="12" Margin="0,0,10,0"
+                    Background="#95A5A6" Foreground="White" BorderThickness="0"
+                    Click="BtnCancel_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <Button x:Name="btnSave" Content="保存配置" Width="100" Height="35" 
+                    FontSize="12" FontWeight="SemiBold"
+                    Background="#27AE60" Foreground="White" BorderThickness="0"
+                    Click="BtnSave_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window> 

@@ -1,0 +1,157 @@
+<Window x:Class="BinanceApps.WPF.PortfolioEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="编辑组合" Height="750" Width="900"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        MinHeight="600" MinWidth="800"
+        Loaded="Window_Loaded">
+    
+    <Window.Resources>
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        
+        <Style x:Key="TextBoxStyle" TargetType="TextBox">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- 名称 -->
+            <RowDefinition Height="Auto"/>  <!-- 说明 -->
+            <RowDefinition Height="Auto"/>  <!-- 搜索 -->
+            <RowDefinition Height="*"/>     <!-- 左右分栏区域 -->
+            <RowDefinition Height="Auto"/>  <!-- 按钮 -->
+        </Grid.RowDefinitions>
+        
+        <!-- 组合名称 -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="组合名称:" Style="{StaticResource LabelStyle}"/>
+            <TextBox x:Name="txtName" Height="35" Style="{StaticResource TextBoxStyle}"/>
+        </StackPanel>
+        
+        <!-- 组合说明 -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 说明 -->
+                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <TextBlock Text="组合说明:" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="txtDescription" Height="70" 
+                             TextWrapping="Wrap" AcceptsReturn="True" 
+                             VerticalScrollBarVisibility="Auto"
+                             Style="{StaticResource TextBoxStyle}"/>
+                </StackPanel>
+                
+                <!-- 分组选择 -->
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="所属分组:" Style="{StaticResource LabelStyle}"/>
+                    <ComboBox x:Name="cmbGroupName" Height="35" FontSize="13"
+                              IsEditable="False" IsTextSearchEnabled="True">
+                        <!-- 分组列表将动态加载 -->
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+        
+        <!-- 搜索合约和批量导入 -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <TextBlock Text="添加合约:" Style="{StaticResource LabelStyle}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="txtSearch" Grid.Column="0" Height="35" 
+                         Style="{StaticResource TextBoxStyle}"
+                         TextChanged="TxtSearch_TextChanged"
+                         KeyDown="TxtSearch_KeyDown"/>
+                <Button x:Name="btnSearch" Grid.Column="1" Content="搜索" 
+                        Width="80" Height="35" Margin="8,0,0,0"
+                        Style="{StaticResource ButtonStyle}"
+                        Click="BtnSearch_Click"/>
+            </Grid>
+            
+            <!-- 批量导入 -->
+            <TextBlock Text="批量导入（支持中英文逗号、#、分号分隔）:" 
+                       Style="{StaticResource LabelStyle}" Margin="0,10,0,0"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="txtBatchImport" Grid.Column="0" Height="60" 
+                         Style="{StaticResource TextBoxStyle}"
+                         TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         ToolTip="粘贴合约列表，支持多种分隔符：&#xA;逗号(, ，)、井号(#)、分号(; ；)、空格、换行"/>
+                <Button x:Name="btnBatchImport" Grid.Column="1" Content="批量导入" 
+                        Width="80" Height="60" Margin="8,0,0,0"
+                        Style="{StaticResource ButtonStyle}"
+                        Background="#28A745" Foreground="White" BorderThickness="0"
+                        Click="BtnBatchImport_Click"/>
+            </Grid>
+        </StackPanel>
+        
+        <!-- 左右分栏区域：左侧=已添加合约，右侧=搜索结果 -->
+        <Grid Grid.Row="3" Margin="0,0,0,15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>      <!-- 左侧：已添加合约 -->
+                <ColumnDefinition Width="10"/>     <!-- 间距 -->
+                <ColumnDefinition Width="*"/>      <!-- 右侧：候选列表 -->
+            </Grid.ColumnDefinitions>
+            
+            <!-- 左侧：已添加合约 -->
+            <DockPanel Grid.Column="0" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource LabelStyle}" Margin="0,0,0,5">
+                    <Run Text="组合成员:"/>
+                    <Run x:Name="txtSymbolCount" Text="(0个)" Foreground="Gray"/>
+                </TextBlock>
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" Background="White" 
+                        DockPanel.Dock="Top" MinHeight="200">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                                  HorizontalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="panelSelectedSymbols" Margin="5"/>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+            
+            <!-- 右侧：候选列表 -->
+            <DockPanel Grid.Column="2" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="候选列表:" 
+                           Style="{StaticResource LabelStyle}" Margin="0,0,0,5"/>
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" Background="White" MinHeight="200">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="panelSearchResults" Margin="5"/>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+        </Grid>
+        
+        <!-- 按钮 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button x:Name="btnSave" Content="保存" Width="90" Height="36" 
+                    Margin="0,0,10,0" Style="{StaticResource ButtonStyle}"
+                    Background="#0078D4" Foreground="White" BorderThickness="0"
+                    Click="BtnSave_Click"/>
+            <Button x:Name="btnCancel" Content="取消" Width="90" Height="36" 
+                    Style="{StaticResource ButtonStyle}"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window> 

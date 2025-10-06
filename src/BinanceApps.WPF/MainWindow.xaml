@@ -1,0 +1,335 @@
+<Window x:Class="BinanceApps.WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="币安自动化交易应用" Height="800" Width="1200"
+        WindowStartupLocation="CenterScreen">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 菜单栏 -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="文件">
+                <MenuItem Header="退出" Click="MenuItem_Exit_Click"/>
+            </MenuItem>
+            <MenuItem Header="工具">
+                <MenuItem Header="API设置" Click="BtnApiSettings_Click"/>
+                <MenuItem Header="服务器设置" Click="MenuItem_ServerSettings_Click"/>
+                <Separator />
+                <MenuItem Header="自定义板块监控" Click="MenuItem_CustomPortfolio_Click"/>
+            </MenuItem>
+            <MenuItem Header="帮助">
+                <MenuItem Header="注册软件" Click="MenuItem_Register_Click"/>
+                <Separator />
+                <MenuItem Header="检查更新" Click="MenuItem_CheckUpdate_Click"/>
+                <MenuItem Header="关于" Click="MenuItem_About_Click"/>
+            </MenuItem>
+        </Menu>
+        
+        <!-- 主要内容区域 -->
+        <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250" MinWidth="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- 左侧导航菜单 -->
+        <StackPanel Grid.Column="0" Background="#2C3E50" Margin="10">
+            <!-- 标题 -->
+            <TextBlock Text="币安交易助手" 
+                       FontSize="18" FontWeight="Bold" 
+                       Foreground="White" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,10,0,20"/>
+
+            <!-- 综合信息仪表板按钮 -->
+            <Button x:Name="btnDashboard" 
+                    Content="📊 综合信息仪表板" 
+                    Height="55" Margin="0,0,0,20"
+                    Background="#0078D4" Foreground="White"
+                    FontSize="15" FontWeight="Bold"
+                    Click="BtnDashboard_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- API设置按钮 -->
+            <Button x:Name="btnApiSettings" 
+                    Content="API设置" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#E67E22" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnApiSettings_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+            <!-- 选币工具按钮已移除 - 合并到主面板 -->
+            
+            <!-- 市场波动率一览按钮 -->
+            <Button x:Name="btnMarketVolatility" 
+                    Content="市场波动率一览" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#FF6B35" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnMarketVolatility_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 24H行情按钮 - 已移除，功能已集成到综合信息仪表板
+            <Button x:Name="btn24HMarket" 
+                    Content="24H行情" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#2E8B57" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="Btn24HMarket_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            -->
+            
+            <!-- 涨速排行榜按钮 -->
+            <Button x:Name="btnPriceSpeedRanking" 
+                    Content="涨速排行榜" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#9932CC" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnPriceSpeedRanking_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 高低价位置按钮 -->
+            <Button x:Name="btnHighLowPosition" 
+                    Content="高低价位置" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#17A2B8" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnCalculateHighLow_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 均线距离分析按钮 -->
+            <Button x:Name="btnMaDistanceMenu" 
+                    Content="均线距离分析" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#9C27B0" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnMaDistance_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 自定义板块监控按钮 -->
+            <Button x:Name="btnCustomPortfolioMenu" 
+                    Content="自定义板块监控" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#00BCD4" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="MenuItem_CustomPortfolio_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 市场每日涨幅分布按钮 -->
+            <Button x:Name="btnMarketDistribution" 
+                    Content="📊 每日涨幅分布" 
+                    Height="55" Margin="0,0,0,15"
+                    Background="#00897B" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnMarketDistribution_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0"
+                                Padding="10,5">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 状态信息 -->
+            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,20,0,0">
+                <StackPanel>
+                    <TextBlock Text="连接状态" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <TextBlock x:Name="txtConnectionStatus" Text="未连接" Foreground="Red"/>
+                    <TextBlock Text="API密钥" FontWeight="Bold" Margin="0,10,0,5"/>
+                    <TextBlock x:Name="txtApiKey" Text="未设置" Foreground="Gray" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+        
+        <!-- 右侧展示区 -->
+        <Border Grid.Column="1" Background="White" Padding="20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 选币工具 - 合并区域 -->
+                <Border Grid.Row="0" Background="#F8F9FA" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="txtTitle" Text="选币工具" 
+                                           FontSize="20" FontWeight="Bold" Foreground="#333333"/>
+                                <TextBlock x:Name="txtSubtitle" Text="点击下方按钮开始使用" 
+                                           FontSize="14" Foreground="#666666" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="btnRefresh" Content="刷新" Width="80" Height="30" 
+                                        Background="#007ACC" Foreground="White" Margin="0,0,10,0"
+                                        Click="BtnRefresh_Click" Visibility="Collapsed"/>
+                                <Button x:Name="btnExport" Content="导出" Width="80" Height="30" 
+                                        Background="#28A745" Foreground="White" Margin="0,0,10,0"
+                                        Click="BtnExport_Click" Visibility="Collapsed"/>
+                                                            <!-- 查看日志按钮已移除 - 根据用户要求简化界面 -->
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="btnFetchKlineData" Content="获取K线数据" Width="140" Height="35" 
+                                    Background="#007ACC" Foreground="White" Margin="0,0,10,0" Click="BtnFetchKlineData_Click"/>
+                            <Button x:Name="btnCalculateHighLow" Content="展示高低位置" Width="140" Height="35" 
+                                    Background="#17A2B8" Foreground="White" Margin="0,0,10,0" Click="BtnCalculateHighLow_Click"/>
+                            <Button x:Name="btnMaDistance" Content="展示均线距离" Width="140" Height="35" 
+                                    Background="#9C27B0" Foreground="White" Margin="0,0,10,0" Click="BtnMaDistance_Click"/>
+                            <Button x:Name="btnAdvancedFilter" Content="高级筛选工具" Width="140" Height="35" 
+                                    Background="#FF6B35" Foreground="White" Margin="0,0,10,0" Click="BtnAdvancedFilter_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 翻页控件 -->
+                <Border Grid.Row="1" Background="#F8F9FA" CornerRadius="8" Padding="15" Margin="0,0,0,20" 
+                        x:Name="paginationPanel" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button x:Name="btnFirstPage" Content="首页" Width="60" Height="30" 
+                                Background="#6C757D" Foreground="White" Margin="0,0,5,0"
+                                Click="BtnFirstPage_Click"/>
+                        <Button x:Name="btnPrevPage" Content="上一页" Width="70" Height="30" 
+                                Background="#6C757D" Foreground="White" Margin="0,0,5,0"
+                                Click="BtnPrevPage_Click"/>
+                        <TextBlock x:Name="txtPageInfo" Text="第 1 页，共 1 页" 
+                                   VerticalAlignment="Center" Margin="10,0" FontWeight="Bold"/>
+                        <Button x:Name="btnNextPage" Content="下一页" Width="70" Height="30" 
+                                Background="#6C757D" Foreground="White" Margin="0,0,5,0"
+                                Click="BtnNextPage_Click"/>
+                        <Button x:Name="btnLastPage" Content="末页" Width="60" Height="30" 
+                                Background="#6C757D" Foreground="White" Margin="0,0,5,0"
+                                Click="BtnLastPage_Click"/>
+                        <ComboBox x:Name="cmbPageSize" Width="80" Height="30" Margin="10,0,0,0"
+                                  SelectedIndex="1" SelectionChanged="CmbPageSize_SelectionChanged">
+                            <ComboBoxItem Content="10条/页"/>
+                            <ComboBoxItem Content="20条/页"/>
+                            <ComboBoxItem Content="50条/页"/>
+                            <ComboBoxItem Content="100条/页"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 重复的选币工具面板已移除 - 已合并到上方 -->
+                
+                <!-- 内容展示区 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="contentPanel">
+                        <!-- 默认为空，等待用户操作 -->
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+        </Grid>
+        
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="就绪" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="StatusBarLicense" Text="未注册" Foreground="Red" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="StatusBarExpiry" Text="" Margin="0,0,10,0"/>
+                    <TextBlock Text="|" Margin="0,0,5,0"/>
+                    <TextBlock x:Name="StatusBarMachine" Text="" FontSize="10" Foreground="Gray"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window> 

@@ -1,0 +1,139 @@
+<Window x:Class="BinanceApps.WPF.VolatilityDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="波动率详情" Height="600" Width="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#F8F9FA">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 标题 -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                CornerRadius="8" Padding="15" Margin="0,0,0,15">
+            <StackPanel>
+                <TextBlock x:Name="txtTitle" Text="波动率前30名" 
+                           FontSize="18" FontWeight="Bold" 
+                           HorizontalAlignment="Center" 
+                           Foreground="#2C3E50"/>
+                <TextBlock x:Name="txtDate" Text="" 
+                           FontSize="12" Foreground="#7F8C8D" 
+                           HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                <TextBlock Text="点击币种名称可复制到剪贴板" 
+                           FontSize="11" Foreground="#95A5A6" 
+                           HorizontalAlignment="Center" Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 币种列表 -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                CornerRadius="8" Padding="0">
+            <ListView x:Name="lvSymbols" 
+                      BorderThickness="0" 
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      SelectionMode="Single"
+                      MouseLeftButtonUp="LvSymbols_MouseLeftButtonUp">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F8FF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#E3F2FD"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="#F1F3F4" BorderThickness="0,0,0,1" Padding="15,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- 排名 -->
+                                <Border Grid.Column="0" Background="#007ACC" CornerRadius="12" 
+                                        Width="24" Height="24" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding Rank}" 
+                                               Foreground="White" FontSize="11" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                
+                                <!-- 币种信息 -->
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Text="{Binding Symbol}" FontWeight="Bold" FontSize="14" 
+                                               Foreground="#2C3E50" Cursor="Hand"/>
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="11" 
+                                               Foreground="#7F8C8D" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                
+                                <!-- 波动率 -->
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding VolatilityText}" FontWeight="Bold" FontSize="12"
+                                               Foreground="{Binding VolatilityColor}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="波动率" FontSize="9" 
+                                               Foreground="#95A5A6" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                
+                                <!-- 24H涨幅 -->
+                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding PriceChangeText}" FontWeight="Bold" FontSize="12"
+                                               Foreground="{Binding PriceChangeColor}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="24H涨幅" FontSize="9" 
+                                               Foreground="#95A5A6" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                                </StackPanel>
+                                
+                                <!-- 24H成交额 -->
+                                <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding QuoteVolumeText}" FontWeight="Bold" FontSize="12"
+                                               Foreground="#2C3E50" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="成交额" FontSize="9" 
+                                               Foreground="#95A5A6" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Border>
+        
+        <!-- 底部信息 -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E1E8ED" BorderThickness="1" 
+                CornerRadius="8" Padding="15" Margin="0,15,0,0">
+            <StackPanel>
+                <TextBlock x:Name="txtStats" Text="" FontSize="12" Foreground="#7F8C8D" 
+                           HorizontalAlignment="Center"/>
+                <Button Content="关闭" Width="80" Height="30" 
+                        Background="#95A5A6" Foreground="White" 
+                        BorderThickness="0" Margin="0,10,0,0"
+                        HorizontalAlignment="Center"
+                        Click="BtnClose_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    CornerRadius="6" BorderThickness="0">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window> 

@@ -1,0 +1,212 @@
+<Window x:Class="BinanceApps.WPF.MaDistanceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="均线距离分析" Height="800" Width="1400"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+    
+    <Window.Resources>
+        <!-- 标题样式 -->
+        <Style x:Key="TitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <!-- 按钮样式 -->
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- 参数输入区 -->
+            <RowDefinition Height="*"/>     <!-- 主要内容区 -->
+        </Grid.RowDefinitions>
+        
+        <!-- 参数输入区 -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" 
+                BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="N天均线:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="txtPeriod" Width="80" Height="28" 
+                         Text="20" VerticalContentAlignment="Center"/>
+                
+                <TextBlock Text="距离百分比(x%):" VerticalAlignment="Center" Margin="20,0,8,0"/>
+                <TextBox x:Name="txtThreshold" Width="80" Height="28" 
+                         Text="5" VerticalContentAlignment="Center"/>
+                <TextBlock Text="%" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                
+                <Button x:Name="btnCalculate" Content="计算" Width="100" Height="32" 
+                        Margin="20,0,0,0" Style="{StaticResource ButtonStyle}"
+                        Click="BtnCalculate_Click"/>
+                
+                <TextBlock x:Name="txtStatus" VerticalAlignment="Center" 
+                           Margin="20,0,0,0" Foreground="#666"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 主要内容区 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>  <!-- 左侧四象限 -->
+                <ColumnDefinition Width="*"/>   <!-- 右侧历史分布 -->
+            </Grid.ColumnDefinitions>
+            
+            <!-- 左侧：四象限列表 -->
+            <Grid Grid.Column="0" Margin="0,0,10,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 上-左：高于均线，距离 ≤x% -->
+                <Border Grid.Row="0" Grid.Column="0" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="0,0,5,5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#E8F5E9" BorderBrush="#4CAF50" 
+                                BorderThickness="0,0,0,2" Padding="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource TitleStyle}">
+                                    <Run Text="高于均线（近）" FontSize="15"/>
+                                    <Run x:Name="txtAboveNearCount" Text="(0个)" Foreground="#666" FontSize="12"/>
+                                </TextBlock>
+                                <TextBlock x:Name="txtAboveNearDesc" Text="距离 ≤ x%" FontSize="11" Foreground="#666"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="panelAboveNear" Margin="5"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                
+                <!-- 上-右：高于均线，距离 >x% -->
+                <Border Grid.Row="0" Grid.Column="1" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="5,0,0,5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#C8E6C9" BorderBrush="#388E3C" 
+                                BorderThickness="0,0,0,2" Padding="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource TitleStyle}">
+                                    <Run Text="高于均线（远）" FontSize="15"/>
+                                    <Run x:Name="txtAboveFarCount" Text="(0个)" Foreground="#666" FontSize="12"/>
+                                </TextBlock>
+                                <TextBlock x:Name="txtAboveFarDesc" Text="距离 > x%" FontSize="11" Foreground="#666"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="panelAboveFar" Margin="5"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                
+                <!-- 下-左：低于均线，距离 ≥-x% -->
+                <Border Grid.Row="1" Grid.Column="0" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="0,5,5,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#FFEBEE" BorderBrush="#EF5350" 
+                                BorderThickness="0,0,0,2" Padding="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource TitleStyle}">
+                                    <Run Text="低于均线（近）" FontSize="15"/>
+                                    <Run x:Name="txtBelowNearCount" Text="(0个)" Foreground="#666" FontSize="12"/>
+                                </TextBlock>
+                                <TextBlock x:Name="txtBelowNearDesc" Text="距离 ≥ -x%" FontSize="11" Foreground="#666"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="panelBelowNear" Margin="5"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+                
+                <!-- 下-右：低于均线，距离 <-x% -->
+                <Border Grid.Row="1" Grid.Column="1" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="5,5,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#FFCDD2" BorderBrush="#D32F2F" 
+                                BorderThickness="0,0,0,2" Padding="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource TitleStyle}">
+                                    <Run Text="低于均线（远）" FontSize="15"/>
+                                    <Run x:Name="txtBelowFarCount" Text="(0个)" Foreground="#666" FontSize="12"/>
+                                </TextBlock>
+                                <TextBlock x:Name="txtBelowFarDesc" Text="距离 &lt; -x%" FontSize="11" Foreground="#666"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="panelBelowFar" Margin="5"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+            
+            <!-- 右侧：历史分布列表 -->
+            <Border Grid.Column="1" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    Background="White" CornerRadius="4" Margin="10,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border Grid.Row="0" Background="#F8F8F8" BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1" Padding="10">
+                        <Grid>
+                            <TextBlock Text="历史分布" FontSize="16" 
+                                       FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button x:Name="btnRecalculateHistory" Content="🔄 重算" 
+                                    Width="80" Height="28" HorizontalAlignment="Right"
+                                    Background="#FF6B35" Foreground="White" 
+                                    BorderThickness="0" Cursor="Hand" FontSize="12"
+                                    ToolTip="强制重新计算所有历史数据（包括已有数据）"
+                                    Click="BtnRecalculateHistory_Click"/>
+                        </Grid>
+                    </Border>
+                    
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="panelHistory" Margin="5"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window> 

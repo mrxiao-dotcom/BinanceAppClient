@@ -1,0 +1,51 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.Core", "src\BinanceApps.Core\BinanceApps.Core.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.Trading", "src\BinanceApps.Trading\BinanceApps.Trading.csproj", "{5953A6E4-4B58-4993-97B6-33C78FB6C0B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.Account", "src\BinanceApps.Account\BinanceApps.Account.csproj", "{C22C57AA-BA86-4CA7-B4F5-4BA45E6B6618}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.MarketData", "src\BinanceApps.MarketData\BinanceApps.MarketData.csproj", "{F72E909D-4EDE-4D82-B9C7-3002B7CD8DA6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.Storage", "src\BinanceApps.Storage\BinanceApps.Storage.csproj", "{8EA7B6EA-841E-4D8B-8BAC-584E28C656F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinanceApps.WPF", "src\BinanceApps.WPF\BinanceApps.WPF.csproj", "{1EC7E3A2-2F9E-44D2-9D52-184A3FB630AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5953A6E4-4B58-4993-97B6-33C78FB6C0B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5953A6E4-4B58-4993-97B6-33C78FB6C0B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5953A6E4-4B58-4993-97B6-33C78FB6C0B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5953A6E4-4B58-4993-97B6-33C78FB6C0B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C22C57AA-BA86-4CA7-B4F5-4BA45E6B6618}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C22C57AA-BA86-4CA7-B4F5-4BA45E6B6618}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C22C57AA-BA86-4CA7-B4F5-4BA45E6B6618}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C22C57AA-BA86-4CA7-B4F5-4BA45E6B6618}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F72E909D-4EDE-4D82-B9C7-3002B7CD8DA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F72E909D-4EDE-4D82-B9C7-3002B7CD8DA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F72E909D-4EDE-4D82-B9C7-3002B7CD8DA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F72E909D-4EDE-4D82-B9C7-3002B7CD8DA6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EA7B6EA-841E-4D8B-8BAC-584E28C656F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EA7B6EA-841E-4D8B-8BAC-584E28C656F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EA7B6EA-841E-4D8B-8BAC-584E28C656F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EA7B6EA-841E-4D8B-8BAC-584E28C656F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1EC7E3A2-2F9E-44D2-9D52-184A3FB630AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1EC7E3A2-2F9E-44D2-9D52-184A3FB630AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1EC7E3A2-2F9E-44D2-9D52-184A3FB630AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1EC7E3A2-2F9E-44D2-9D52-184A3FB630AB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

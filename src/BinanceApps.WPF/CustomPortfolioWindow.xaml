@@ -1,0 +1,148 @@
+<Window x:Class="BinanceApps.WPF.CustomPortfolioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="自定义板块监控" Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    
+    <Window.Resources>
+        <!-- 按钮样式 -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#005A9E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- 功能区 -->
+            <RowDefinition Height="*"/>     <!-- 内容区 -->
+        </Grid.RowDefinitions>
+        
+        <!-- 功能区 -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="15,10">
+                <Button x:Name="btnCreatePortfolio" Content="创建组合" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Width="100" Height="32" Click="BtnCreatePortfolio_Click"/>
+                <Button x:Name="btnRefreshData" Content="刷新数据" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Width="100" Height="32" Click="BtnRefreshData_Click"/>
+                <Button x:Name="btnCreateGroup" Content="创建分组" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Width="100" Height="32" Click="BtnCreateGroup_Click"
+                        Background="#28A745" Foreground="White"/>
+                <Button x:Name="btnExportPortfolios" Content="导出组合" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Width="100" Height="32" Click="BtnExportPortfolios_Click"
+                        Background="#17A2B8" Foreground="White"/>
+                <Button x:Name="btnImportPortfolios" Content="导入组合" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Width="100" Height="32" Click="BtnImportPortfolios_Click"
+                        Background="#FFC107" Foreground="White"/>
+                <TextBlock x:Name="txtLastUpdate" VerticalAlignment="Center" 
+                           Margin="20,0,0,0" Text="最后更新: --" Foreground="#666"/>
+                <TextBlock x:Name="txtAutoUpdate" VerticalAlignment="Center" 
+                           Margin="10,0,0,0" Text="(自动刷新: 每5秒)" Foreground="#999" FontSize="11"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 内容区 -->
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="600"/>  <!-- 组合列表（等宽，可调） -->
+                <ColumnDefinition Width="Auto"/>    <!-- 分割条 -->
+                <ColumnDefinition Width="*" MinWidth="600"/>    <!-- 组合明细（等宽，可调） -->
+            </Grid.ColumnDefinitions>
+            
+            <!-- 组合列表 -->
+            <Border Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    Background="White" CornerRadius="4" Margin="0,0,2,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>  <!-- 标题 -->
+                        <RowDefinition Height="Auto"/>  <!-- 分组标签 -->
+                        <RowDefinition Height="Auto"/>  <!-- 表头 -->
+                        <RowDefinition Height="*"/>     <!-- 组合列表 -->
+                    </Grid.RowDefinitions>
+                    
+                    <Border Grid.Row="0" Background="#F8F8F8" BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1" Padding="10">
+                        <TextBlock Text="组合列表" FontSize="16" 
+                                   FontWeight="Bold" TextAlignment="Center"/>
+                    </Border>
+                    
+                    <!-- 分组标签栏 -->
+                    <Border Grid.Row="1" Background="#FAFAFA" BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1" Padding="5">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="panelGroupTabs" Orientation="Horizontal"/>
+                        </ScrollViewer>
+                    </Border>
+                    
+                    <!-- 表头 -->
+                    <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1" Padding="5,5,5,5">
+                        <Grid x:Name="gridPortfolioHeader"/>
+                    </Border>
+                    
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="panelPortfolios" Margin="5"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            
+            <!-- 可拖动的分割条 -->
+            <GridSplitter Grid.Column="1" 
+                          Width="6" 
+                          HorizontalAlignment="Center" 
+                          VerticalAlignment="Stretch"
+                          Background="#C0C0C0"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="False"/>
+            
+            <!-- 组合明细 -->
+            <Border Grid.Column="2" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    Background="White" CornerRadius="4" Margin="2,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border Grid.Row="0" Background="#F8F8F8" BorderBrush="#E0E0E0" 
+                            BorderThickness="0,0,0,1" Padding="10">
+                        <TextBlock x:Name="txtDetailTitle" Text="请选择组合" 
+                                   FontSize="16" FontWeight="Bold" TextAlignment="Center"/>
+                    </Border>
+                    
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="panelSymbolDetails" Margin="10"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window> 
