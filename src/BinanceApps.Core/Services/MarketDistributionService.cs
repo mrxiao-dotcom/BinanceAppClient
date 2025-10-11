@@ -16,15 +16,21 @@ namespace BinanceApps.Core.Services
         private readonly ILogger<MarketDistributionService> _logger;
         private readonly IBinanceSimulatedApiClient _apiClient;
         private readonly KlineDataStorageService _klineStorageService;
+        private readonly TickerCacheService _tickerCacheService;
+        private readonly SymbolInfoCacheService _symbolInfoCacheService;
 
         public MarketDistributionService(
             ILogger<MarketDistributionService> logger,
             IBinanceSimulatedApiClient apiClient,
-            KlineDataStorageService klineStorageService)
+            KlineDataStorageService klineStorageService,
+            TickerCacheService tickerCacheService,
+            SymbolInfoCacheService symbolInfoCacheService)
         {
             _logger = logger;
             _apiClient = apiClient;
             _klineStorageService = klineStorageService;
+            _tickerCacheService = tickerCacheService;
+            _symbolInfoCacheService = symbolInfoCacheService;
         }
 
         /// <summary>
@@ -41,8 +47,8 @@ namespace BinanceApps.Core.Services
 
             try
             {
-                // 获取所有活跃交易的合约列表
-                var symbolsInfo = await _apiClient.GetAllSymbolsInfoAsync();
+                // 从缓存获取所有活跃交易的合约列表
+                var symbolsInfo = await _symbolInfoCacheService.GetAllSymbolsInfoAsync();
                 var activeSymbols = symbolsInfo
                     .Where(s => s.IsTrading && s.Symbol.EndsWith("USDT") && s.ContractType == Models.ContractType.Perpetual)
                     .Select(s => s.Symbol)
@@ -101,8 +107,8 @@ namespace BinanceApps.Core.Services
 
             try
             {
-                // 获取所有合约的24H ticker数据
-                var tickers = await _apiClient.GetAllTicksAsync();
+                // 从缓存获取所有合约的24H ticker数据
+                var tickers = await _tickerCacheService.GetAllTickersAsync();
                 var symbolSet = new HashSet<string>(symbols);
 
                 foreach (var ticker in tickers)

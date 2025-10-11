@@ -62,6 +62,9 @@ namespace BinanceApps.WPF
         private BinanceApps.Core.Services.ContractInfoService? _contractInfoService;
         private BinanceApps.Core.Services.DashboardService? _dashboardService;
         private BinanceApps.Core.Services.MarketDistributionService? _marketDistributionService;
+        private BinanceApps.Core.Services.HotspotTrackingService? _hotspotTrackingService;
+        private BinanceApps.Core.Services.GainerTrackingService? _gainerTrackingService;
+        private BinanceApps.Core.Services.LoserTrackingService? _loserTrackingService;
         
         // 涨速排行榜相关
         private System.Threading.Timer? _priceSpeedTimer;
@@ -117,6 +120,9 @@ namespace BinanceApps.WPF
             _contractInfoService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.ContractInfoService>();
             _dashboardService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.DashboardService>();
             _marketDistributionService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.MarketDistributionService>();
+            _hotspotTrackingService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.HotspotTrackingService>();
+            _gainerTrackingService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.GainerTrackingService>();
+            _loserTrackingService = _serviceProvider.GetRequiredService<BinanceApps.Core.Services.LoserTrackingService>();
             
             // 初始化自定义板块服务（异步初始化会在 InitializeAsync 中完成）
             
@@ -180,6 +186,10 @@ namespace BinanceApps.WPF
             // 添加HttpClient
             services.AddHttpClient();
             
+            // 添加缓存服务（优先注册，其他服务依赖它们）
+            services.AddSingleton<BinanceApps.Core.Services.TickerCacheService>();
+            services.AddSingleton<BinanceApps.Core.Services.SymbolInfoCacheService>();
+            
             // 添加通知服务
             services.AddSingleton<BinanceApps.Core.Services.NotificationService>();
             services.AddSingleton<BinanceApps.Core.Services.MarketMonitorService>();
@@ -188,9 +198,8 @@ namespace BinanceApps.WPF
             services.AddSingleton<BinanceApps.Core.Services.CustomPortfolioService>();
             services.AddSingleton<BinanceApps.Core.Services.PortfolioGroupService>();
             services.AddSingleton<BinanceApps.Core.Services.KlineDataStorageService>(sp => _klineStorageService);
-            services.AddSingleton<BinanceApps.Core.Services.MaDistanceService>();
             
-            // 注册ContractInfoService，统一使用LicenseServerUrl
+            // 注册ContractInfoService，统一使用LicenseServerUrl（需要在MaDistanceService之前注册）
             services.AddSingleton<BinanceApps.Core.Services.ContractInfoService>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<BinanceApps.Core.Services.ContractInfoService>>();
@@ -220,6 +229,18 @@ namespace BinanceApps.WPF
                 Console.WriteLine($"✅ 合约API最终地址: {contractApiUrl}");
                 return new BinanceApps.Core.Services.ContractInfoService(logger, contractApiUrl);
             });
+            
+            // 注册MaDistanceService（依赖ContractInfoService）
+            services.AddSingleton<BinanceApps.Core.Services.MaDistanceService>();
+            
+            // 注册HotspotTrackingService（依赖ContractInfoService）
+            services.AddSingleton<BinanceApps.Core.Services.HotspotTrackingService>();
+            
+            // 注册GainerTrackingService（依赖ContractInfoService）
+            services.AddSingleton<BinanceApps.Core.Services.GainerTrackingService>();
+            
+            // 注册LoserTrackingService（依赖ContractInfoService）
+            services.AddSingleton<BinanceApps.Core.Services.LoserTrackingService>();
             
             services.AddSingleton<BinanceApps.Core.Services.DashboardService>();
             services.AddSingleton<BinanceApps.Core.Services.MarketDistributionService>();
@@ -1467,46 +1488,32 @@ namespace BinanceApps.WPF
                         
                         _logWindow?.AddLog($"更新 {symbol.Symbol}: {updateStatus.Reason}", LogType.Info);
                         
-                        // 从API获取K线数据
+                        // 使用智能下载方法（只下载缺失的部分）
                         try
                         {
-                            var klines = await _apiClient.GetKlinesAsync(symbol.Symbol, KlineInterval.OneDay, 90);
-                            
-                            if (klines != null && klines.Count > 0)
+                            var (downloadSuccess, changedCount, downloadError) = 
+                                await _klineStorageService.SmartDownloadKlineDataAsync(
+                                    symbol.Symbol, 
+                                    _apiClient, 
+                                    90 // 默认下载90天
+                                );
+
+                            if (downloadSuccess)
                             {
-                                // 添加调试信息：检查实际获取的数据范围
-                                var firstKline = klines.OrderBy(k => k.OpenTime).First();
-                                var lastKline = klines.OrderByDescending(k => k.OpenTime).First();
-                                var daySpan = (lastKline.OpenTime.Date - firstKline.OpenTime.Date).Days + 1;
-                                
-                                Console.WriteLine($"📊 {symbol.Symbol} API返回K线数据: {klines.Count}条");
-                                Console.WriteLine($"📅 数据时间范围: {firstKline.OpenTime:yyyy-MM-dd} 至 {lastKline.OpenTime:yyyy-MM-dd} ({daySpan}天)");
-                                
-                                if (daySpan < 85) // 如果少于85天，发出警告
+                                if (changedCount > 0)
                                 {
-                                    Console.WriteLine($"⚠️ 警告: {symbol.Symbol} 数据不足90天，仅{daySpan}天");
-                                }
-                                // 使用增量更新逻辑
-                                var (updateSuccess, newKlines, updatedKlines, updateError) = 
-                                    await _klineStorageService.IncrementalUpdateKlineDataAsync(symbol.Symbol, klines);
-                                
-                                if (updateSuccess)
-                                {
-                                    var message = newKlines > 0 || updatedKlines > 0 
-                                        ? $"增量更新 {symbol.Symbol}: 新增{newKlines}条, 更新{updatedKlines}条"
-                                        : $"无变化 {symbol.Symbol}: 数据已是最新";
-                                    _logWindow?.AddLog(message, LogType.Success);
+                                    _logWindow?.AddLog($"更新 {symbol.Symbol}: 变更{changedCount}条数据", LogType.Success);
                                     successCount++;
                                 }
                                 else
                                 {
-                                    _logWindow?.AddLog($"增量更新 {symbol.Symbol} 失败: {updateError}", LogType.Error);
-                                    failedCount++;
+                                    _logWindow?.AddLog($"跳过 {symbol.Symbol}: 数据已是最新", LogType.Info);
+                                    successCount++;
                                 }
                             }
                             else
                             {
-                                _logWindow?.AddLog($"跳过 {symbol.Symbol}: API返回无K线数据", LogType.Warning);
+                                _logWindow?.AddLog($"失败 {symbol.Symbol}: {downloadError}", LogType.Error);
                                 failedCount++;
                             }
                         }
@@ -4077,11 +4084,105 @@ namespace BinanceApps.WPF
                 };
                 
                 window.Show();
-                _logWindow?.AddLog("已打开均线距离分析窗口", LogType.Info);
             }
             catch (Exception ex)
             {
-                _logWindow?.AddLog($"打开均线距离分析窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开均线距离分析窗口失败：{ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// 打开热点追踪窗口
+        /// </summary>
+        private void BtnHotspotTracking_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_hotspotTrackingService == null)
+                {
+                    MessageBox.Show("热点追踪服务未初始化，请稍后再试。", "错误", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                // 创建Logger实例用于HotspotTrackingWindow
+                var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => { });
+                var logger = loggerFactory.CreateLogger(typeof(HotspotTrackingWindow).FullName ?? "HotspotTrackingWindow");
+                var typedLogger = new Microsoft.Extensions.Logging.Logger<HotspotTrackingWindow>(loggerFactory);
+                
+                // 创建并显示热点追踪窗口（允许多个实例）
+                var window = new HotspotTrackingWindow(typedLogger, _hotspotTrackingService);
+                
+                window.Show();
+                _logWindow?.AddLog("已打开热点追踪窗口", LogType.Info);
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开热点追踪窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// 打开涨幅榜追踪窗口
+        /// </summary>
+        private void BtnGainerTracking_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_gainerTrackingService == null)
+                {
+                    MessageBox.Show("涨幅榜追踪服务未初始化，请稍后再试。", "错误", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                // 创建Logger实例用于GainerTrackingWindow
+                var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => { });
+                var logger = loggerFactory.CreateLogger(typeof(GainerTrackingWindow).FullName ?? "GainerTrackingWindow");
+                var typedLogger = new Microsoft.Extensions.Logging.Logger<GainerTrackingWindow>(loggerFactory);
+                
+                // 创建并显示涨幅榜追踪窗口（允许多个实例）
+                var window = new GainerTrackingWindow(typedLogger, _gainerTrackingService);
+                
+                window.Show();
+                _logWindow?.AddLog("已打开涨幅榜追踪窗口", LogType.Info);
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开涨幅榜追踪窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnLoserTracking_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_loserTrackingService == null)
+                {
+                    MessageBox.Show("跌幅榜追踪服务未初始化，请稍后再试。", "错误", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                // 创建Logger实例用于LoserTrackingWindow
+                var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => { });
+                var logger = loggerFactory.CreateLogger(typeof(LoserTrackingWindow).FullName ?? "LoserTrackingWindow");
+                var typedLogger = new Microsoft.Extensions.Logging.Logger<LoserTrackingWindow>(loggerFactory);
+                
+                // 创建并显示跌幅榜追踪窗口（允许多个实例）
+                var window = new LoserTrackingWindow(typedLogger, _loserTrackingService);
+                
+                window.Show();
+                _logWindow?.AddLog("已打开跌幅榜追踪窗口", LogType.Info);
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开跌幅榜追踪窗口失败: {ex.Message}", LogType.Error);
                 MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }

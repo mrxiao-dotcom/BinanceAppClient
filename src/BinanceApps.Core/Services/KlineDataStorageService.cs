@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BinanceApps.Core.Models;
+using BinanceApps.Core.Interfaces;
 
 namespace BinanceApps.Core.Services
 {
@@ -180,6 +181,164 @@ namespace BinanceApps.Core.Services
         }
 
         /// <summary>
+        /// 智能下载K线数据 - 只下载缺失的部分，并自动补齐中间缺失的数据
+        /// </summary>
+        /// <param name="symbol">交易对</param>
+        /// <param name="apiClient">API客户端</param>
+        /// <param name="defaultDays">默认下载天数（本地无数据时）</param>
+        public async Task<(bool Success, int DownloadedCount, string? ErrorMessage)> SmartDownloadKlineDataAsync(
+            string symbol,
+            IBinanceSimulatedApiClient apiClient,
+            int defaultDays = 90)
+        {
+            try
+            {
+                // 1. 检查本地数据
+                var (existingKlines, loadSuccess, loadError) = await LoadKlineDataAsync(symbol);
+                
+                DateTime startDate;
+                
+                if (loadSuccess && existingKlines != null && existingKlines.Count > 0)
+                {
+                    // 有本地数据 - 检查是否有缺失
+                    var sortedDates = existingKlines
+                        .Select(k => k.OpenTime.Date)
+                        .Distinct()
+                        .OrderBy(d => d)
+                        .ToList();
+                    
+                    var lastDate = sortedDates.Last();
+                    var firstDate = sortedDates.First();
+                    
+                    // 检查数据连续性，找到第一个缺失的日期
+                    DateTime? firstGapDate = null;
+                    for (int i = 0; i < sortedDates.Count - 1; i++)
+                    {
+                        var currentDate = sortedDates[i];
+                        var nextDate = sortedDates[i + 1];
+                        var expectedNextDate = currentDate.AddDays(1);
+                        
+                        // 如果下一个日期不是连续的，说明有缺失
+                        if (nextDate > expectedNextDate)
+                        {
+                            firstGapDate = expectedNextDate;
+                            var gapDays = (nextDate - currentDate).Days - 1;
+                            Console.WriteLine($"⚠️ 发现数据缺失: {currentDate:yyyy-MM-dd} 到 {nextDate:yyyy-MM-dd} 之间缺失 {gapDays} 天");
+                            break;
+                        }
+                    }
+                    
+                    if (firstGapDate.HasValue)
+                    {
+                        // 有缺失 - 从缺失的前一天开始下载，确保补齐中间数据
+                        startDate = firstGapDate.Value.AddDays(-1);
+                        Console.WriteLine($"📊 {symbol} 检测到数据缺失");
+                        Console.WriteLine($"📊 本地数据范围: {firstDate:yyyy-MM-dd} 至 {lastDate:yyyy-MM-dd}");
+                        Console.WriteLine($"📥 将从 {startDate:yyyy-MM-dd} 开始补齐缺失数据到今天");
+                    }
+                    else
+                    {
+                        // 无缺失 - 从最新数据的日期开始下载
+                        startDate = lastDate; // 包含最后一天（可能不完整）
+                        Console.WriteLine($"📊 {symbol} 本地最新数据: {lastDate:yyyy-MM-dd}");
+                        Console.WriteLine($"📥 将下载从 {startDate:yyyy-MM-dd} 到今天的数据");
+                    }
+                }
+                else
+                {
+                    // 没有本地数据 - 下载默认天数
+                    startDate = DateTime.Today.AddDays(-defaultDays + 1);
+                    
+                    Console.WriteLine($"📊 {symbol} 本地无数据");
+                    Console.WriteLine($"📥 将下载最近 {defaultDays} 天的数据");
+                }
+                
+                // 2. 检查是否需要下载
+                var daysToDownload = (DateTime.Today - startDate).Days + 1;
+                
+                if (daysToDownload <= 0)
+                {
+                    Console.WriteLine($"✅ {symbol} 数据已是最新，无需下载");
+                    return (true, 0, null);
+                }
+                
+                Console.WriteLine($"📈 需要下载 {daysToDownload} 天的数据");
+                
+                // 3. 调用API下载（使用时间范围）
+                List<Kline> newKlines;
+                
+                // 检查API客户端类型，选择合适的调用方式
+                var apiClientType = apiClient.GetType();
+                var hasTimeRangeMethod = apiClientType.GetMethod("GetKlinesAsync", 
+                    new Type[] { typeof(string), typeof(KlineInterval), typeof(DateTime), typeof(DateTime?), typeof(int) });
+                
+                if (hasTimeRangeMethod != null)
+                {
+                    // 使用新的时间范围方法（支持反射调用）
+                    try
+                    {
+                        var taskObject = hasTimeRangeMethod.Invoke(apiClient, new object[] 
+                        { 
+                            symbol, 
+                            KlineInterval.OneDay, 
+                            startDate,
+                            DateTime.Today.AddDays(1), // 包含今天
+                            Math.Min(daysToDownload + 5, 1000) // 稍微多下载几天以防万一
+                        });
+                        
+                        if (taskObject is Task<List<Kline>> task)
+                        {
+                            newKlines = await task;
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("反射调用返回类型不匹配");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️ 使用时间范围方法失败，降级到原有方法: {ex.Message}");
+                        var limit = Math.Min(daysToDownload + 5, 1000);
+                        newKlines = await apiClient.GetKlinesAsync(symbol, KlineInterval.OneDay, limit);
+                    }
+                }
+                else
+                {
+                    // 降级使用原有方法
+                    var limit = Math.Min(daysToDownload + 5, 1000);
+                    newKlines = await apiClient.GetKlinesAsync(symbol, KlineInterval.OneDay, limit);
+                }
+                
+                if (newKlines == null || newKlines.Count == 0)
+                {
+                    return (false, 0, "API返回空数据");
+                }
+                
+                Console.WriteLine($"📥 从API获取到 {newKlines.Count} 条K线数据");
+                
+                // 4. 增量更新本地数据
+                var (updateSuccess, newCount, updatedCount, updateError) = 
+                    await IncrementalUpdateKlineDataAsync(symbol, newKlines);
+                
+                if (updateSuccess)
+                {
+                    var totalChanges = newCount + updatedCount;
+                    Console.WriteLine($"✅ {symbol} 数据更新成功: 新增{newCount}条, 更新{updatedCount}条");
+                    return (true, totalChanges, null);
+                }
+                else
+                {
+                    return (false, 0, updateError);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ {symbol} 智能下载失败: {ex.Message}");
+                return (false, 0, ex.Message);
+            }
+        }
+
+        /// <summary>
         /// 合并K线数据 - 智能处理当日未完成数据
         /// </summary>
         private async Task<KlineMergeResult> MergeKlineDataAsync(List<Kline> existingKlines, List<Kline> newKlines)
@@ -190,10 +349,19 @@ namespace BinanceApps.Core.Services
             var newCount = 0;
             var updatedCount = 0;
             var today = DateTime.UtcNow.Date;
+            
+            // 找到本地最后一条K线的日期（用于智能更新判断）
+            var lastLocalDate = existingKlines.Count > 0 
+                ? existingKlines.Max(k => k.OpenTime).Date 
+                : DateTime.MinValue;
 
             Console.WriteLine($"🔄 合并K线数据:");
             Console.WriteLine($"   📊 现有数据: {existingKlines.Count} 条");
             Console.WriteLine($"   📊 新数据: {newKlines.Count} 条");
+            if (lastLocalDate != DateTime.MinValue)
+            {
+                Console.WriteLine($"   📅 本地最后日期: {lastLocalDate:yyyy-MM-dd}");
+            }
 
             foreach (var newKline in newKlines)
             {
@@ -224,6 +392,13 @@ namespace BinanceApps.Core.Services
                         // 昨日数据：也需要更新（因为可能是之前的"当日数据"，不完整）
                         shouldUpdate = true;
                         Console.WriteLine($"   🔄 更新昨日数据: {klineDate:yyyy-MM-dd} (可能之前是不完整的当日数据)");
+                    }
+                    else if (klineDate == lastLocalDate)
+                    {
+                        // 本地最后一条K线：始终更新（确保数据完整性）
+                        // 这条逻辑确保即使是周五下午下载的数据，周一重新下载时也会更新
+                        shouldUpdate = true;
+                        Console.WriteLine($"   🔄 更新本地最后一条K线: {klineDate:yyyy-MM-dd} (确保数据完整)");
                     }
                     else if (IsDataDifferent(existingKline, newKline))
                     {

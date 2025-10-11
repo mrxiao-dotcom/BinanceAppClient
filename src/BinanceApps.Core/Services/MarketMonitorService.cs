@@ -15,6 +15,7 @@ namespace BinanceApps.Core.Services
         private readonly IBinanceSimulatedApiClient _apiClient;
         private readonly NotificationService _notificationService;
         private readonly IConfiguration _configuration;
+        private readonly TickerCacheService _tickerCacheService;
         private Timer? _monitorTimer;
         private DateTime _lastPushDate = DateTime.MinValue;
         private int _soundAlertCount = 0;
@@ -24,11 +25,13 @@ namespace BinanceApps.Core.Services
         public MarketMonitorService(
             IBinanceSimulatedApiClient apiClient, 
             NotificationService notificationService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            TickerCacheService tickerCacheService)
         {
             _apiClient = apiClient;
             _notificationService = notificationService;
             _configuration = configuration;
+            _tickerCacheService = tickerCacheService;
         }
 
         /// <summary>
@@ -96,7 +99,7 @@ namespace BinanceApps.Core.Services
                 Console.WriteLine($"📊 {DateTime.Now:HH:mm:ss} 开始检查市场成交额...");
 
                 // 获取24H数据
-                var allTickers = await _apiClient.GetAllTicksAsync();
+                var allTickers = await _tickerCacheService.GetAllTickersAsync();
                 if (allTickers == null || !allTickers.Any())
                 {
                     Console.WriteLine("⚠️ 无法获取24H数据");

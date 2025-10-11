@@ -141,6 +141,8 @@ namespace BinanceApps.WPF
         /// </summary>
         private async void BtnCalculate_Click(object sender, RoutedEventArgs e)
         {
+            _logger.LogInformation("=== 用户点击了计算按钮 ===");
+            Console.WriteLine("=== 用户点击了计算按钮 ===");
             await CalculateAsync();
         }
         
@@ -149,11 +151,18 @@ namespace BinanceApps.WPF
         /// </summary>
         private async Task CalculateAsync()
         {
+            _logger.LogInformation(">>> CalculateAsync 方法开始执行");
+            Console.WriteLine(">>> CalculateAsync 方法开始执行");
+            
             try
             {
                 // 1. 验证输入
+                Console.WriteLine($">>> 验证输入: Period={txtPeriod.Text}, Threshold={txtThreshold.Text}");
+                
                 if (!int.TryParse(txtPeriod.Text, out int period) || period < 1 || period > 100)
                 {
+                    _logger.LogWarning($"输入参数无效: Period={txtPeriod.Text}");
+                    Console.WriteLine($">>> 输入参数无效: Period={txtPeriod.Text}");
                     MessageBox.Show("请输入有效的N天均线（1-100）", "输入错误", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
@@ -161,12 +170,17 @@ namespace BinanceApps.WPF
                 
                 if (!decimal.TryParse(txtThreshold.Text, out decimal threshold) || threshold < 1 || threshold > 50)
                 {
+                    _logger.LogWarning($"输入参数无效: Threshold={txtThreshold.Text}");
+                    Console.WriteLine($">>> 输入参数无效: Threshold={txtThreshold.Text}");
                     MessageBox.Show("请输入有效的距离百分比（1-50）", "输入错误", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
                 
+                Console.WriteLine($">>> 参数验证通过: Period={period}, Threshold={threshold}");
+                
                 // 2. 禁用按钮，显示进度
+                Console.WriteLine(">>> 禁用按钮，更新状态...");
                 btnCalculate.IsEnabled = false;
                 txtStatus.Text = "正在计算均线距离...";
                 
@@ -285,10 +299,12 @@ namespace BinanceApps.WPF
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });  // 序号
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // 合约
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });  // 价格
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });  // 涨幅
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });  // 距离
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) }); // 成交额
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });  // 价格
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });  // 涨幅
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });  // 距离
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });  // 成交额
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });  // 流通市值
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });  // 量比
             
             // 序号
             AddHeaderText(grid, "#", 0, false, null, zone);
@@ -307,6 +323,12 @@ namespace BinanceApps.WPF
             
             // 成交额（可排序）
             AddHeaderText(grid, "24H成交额", 5, true, "Volume", zone);
+            
+            // 流通市值（可排序）
+            AddHeaderText(grid, "流通市值", 6, true, "MarketCap", zone);
+            
+            // 量比（可排序）
+            AddHeaderText(grid, "量比", 7, true, "VolumeRatio", zone);
             
             border.Child = grid;
             return border;
@@ -362,11 +384,48 @@ namespace BinanceApps.WPF
                 _sortAscending = false; // 默认降序
             }
             
-            // 刷新显示
+            // 只刷新被点击的区域，不影响其他区域
             if (_currentResult != null)
             {
-                DisplayResult(_currentResult);
+                RefreshSingleZone(zone);
             }
+        }
+        
+        /// <summary>
+        /// 刷新单个区域的显示
+        /// </summary>
+        private void RefreshSingleZone(MaDistanceZone zone)
+        {
+            if (_currentResult == null)
+                return;
+            
+            StackPanel panel;
+            List<MaDistanceData> data;
+            
+            switch (zone)
+            {
+                case MaDistanceZone.AboveNear:
+                    panel = panelAboveNear;
+                    data = _currentResult.AboveNear;
+                    break;
+                case MaDistanceZone.AboveFar:
+                    panel = panelAboveFar;
+                    data = _currentResult.AboveFar;
+                    break;
+                case MaDistanceZone.BelowNear:
+                    panel = panelBelowNear;
+                    data = _currentResult.BelowNear;
+                    break;
+                case MaDistanceZone.BelowFar:
+                    panel = panelBelowFar;
+                    data = _currentResult.BelowFar;
+                    break;
+                default:
+                    return;
+            }
+            
+            // 只刷新这一个区域
+            DisplayQuadrantData(panel, data, zone);
         }
         
         /// <summary>
@@ -404,6 +463,16 @@ namespace BinanceApps.WPF
                         ? data.OrderBy(d => d.QuoteVolume)
                         : data.OrderByDescending(d => d.QuoteVolume);
                     break;
+                case "MarketCap":
+                    sorted = _sortAscending
+                        ? data.OrderBy(d => d.CirculatingMarketCap ?? 0)
+                        : data.OrderByDescending(d => d.CirculatingMarketCap ?? 0);
+                    break;
+                case "VolumeRatio":
+                    sorted = _sortAscending
+                        ? data.OrderBy(d => d.VolumeRatio ?? 0)
+                        : data.OrderByDescending(d => d.VolumeRatio ?? 0);
+                    break;
             }
             
             return sorted.ToList();
@@ -430,10 +499,12 @@ namespace BinanceApps.WPF
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
             
             // 序号
             AddCellText(grid, index.ToString(), 0, Colors.Gray);
@@ -491,6 +562,58 @@ namespace BinanceApps.WPF
                 ? $"${data.QuoteVolume / 1_000_000m:F1}M"
                 : $"${data.QuoteVolume / 1000m:F0}K";
             AddCellText(grid, volumeText, 5, Color.FromRgb(80, 80, 80));
+            
+            // 流通市值
+            string marketCapText;
+            if (data.CirculatingMarketCap.HasValue)
+            {
+                var marketCap = data.CirculatingMarketCap.Value;
+                if (marketCap >= 1_000_000_000m)
+                    marketCapText = $"${marketCap / 1_000_000_000m:F2}B";
+                else if (marketCap >= 1_000_000m)
+                    marketCapText = $"${marketCap / 1_000_000m:F1}M";
+                else
+                    marketCapText = $"${marketCap / 1000m:F0}K";
+            }
+            else
+            {
+                marketCapText = "-";
+            }
+            AddCellText(grid, marketCapText, 6, Color.FromRgb(80, 80, 80));
+            
+            // 量比（转换为百分比显示）
+            string volumeRatioText;
+            Color volumeRatioColor = Color.FromRgb(128, 128, 128); // 默认灰色
+            bool volumeRatioBold = false;
+            
+            if (data.VolumeRatio.HasValue)
+            {
+                var ratioPercent = data.VolumeRatio.Value * 100m; // 转换为百分比
+                
+                // 根据量比大小设置颜色（阈值保持不变：50%、20%）
+                if (ratioPercent >= 50m)
+                {
+                    volumeRatioColor = Color.FromRgb(220, 20, 20); // 红色（超活跃，≥50%）
+                    volumeRatioBold = true;
+                }
+                else if (ratioPercent >= 20m)
+                {
+                    volumeRatioColor = Color.FromRgb(255, 140, 0); // 橙色（活跃，20-50%）
+                }
+                
+                // 格式化显示为百分比
+                if (ratioPercent >= 10m)
+                    volumeRatioText = $"{ratioPercent:F1}%";  // 10% 以上显示一位小数
+                else if (ratioPercent >= 1m)
+                    volumeRatioText = $"{ratioPercent:F2}%";  // 1-10% 显示两位小数
+                else
+                    volumeRatioText = $"{ratioPercent:F3}%";  // <1% 显示三位小数
+            }
+            else
+            {
+                volumeRatioText = "-";
+            }
+            AddCellText(grid, volumeRatioText, 7, volumeRatioColor, volumeRatioBold);
             
             border.Child = grid;
             return border;

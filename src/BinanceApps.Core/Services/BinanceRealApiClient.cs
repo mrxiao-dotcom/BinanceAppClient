@@ -451,6 +451,87 @@ namespace BinanceApps.Core.Services
             return klines;
         }
 
+        /// <summary>
+        /// 获取指定时间范围的K线数据（用于智能增量下载）
+        /// </summary>
+        public async Task<List<Kline>> GetKlinesAsync(string symbol, KlineInterval interval, DateTime startTime, DateTime? endTime = null, int limit = 1000)
+        {
+            var intervalString = GetBinanceIntervalString(interval);
+            
+            // 转换为UTC时间戳（毫秒）
+            var startTimeMs = new DateTimeOffset(startTime.ToUniversalTime()).ToUnixTimeMilliseconds();
+            
+            // 构建请求URL
+            var apiUrl = _isTestnet ? "https://testnet.binancefuture.com/fapi/v1/klines" : "https://fapi.binance.com/fapi/v1/klines";
+            var requestUrl = $"{apiUrl}?symbol={symbol}&interval={intervalString}&startTime={startTimeMs}&limit={limit}";
+            
+            // 如果指定了结束时间，添加到URL
+            if (endTime.HasValue)
+            {
+                var endTimeMs = new DateTimeOffset(endTime.Value.ToUniversalTime()).ToUnixTimeMilliseconds();
+                requestUrl += $"&endTime={endTimeMs}";
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"正在获取K线数据（时间范围）: {requestUrl}");
+            Console.WriteLine($"📈 获取 {symbol} 的K线数据: {startTime:yyyy-MM-dd} 到 {endTime?.ToString("yyyy-MM-dd") ?? "现在"}");
+            
+            // 使用公开API（不需要API Key）
+            using var publicHttpClient = new HttpClient();
+            publicHttpClient.Timeout = TimeSpan.FromSeconds(30);
+            publicHttpClient.DefaultRequestHeaders.Add("User-Agent", "BinanceApps/1.0");
+            
+            var response = await publicHttpClient.GetAsync(requestUrl);
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"获取K线数据失败: {content}");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"K线数据响应长度: {content.Length}");
+            
+            var klinesData = JsonSerializer.Deserialize<JsonElement[][]>(content);
+            if (klinesData == null || klinesData.Length == 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"K线数据为空或解析失败: {symbol}");
+                return new List<Kline>();
+            }
+
+            var klines = new List<Kline>();
+            foreach (var k in klinesData)
+            {
+                try
+                {
+                    // 币安K线数据格式：[开盘时间, 开盘价, 最高价, 最低价, 收盘价, 成交量, 收盘时间, 成交额, 成交笔数, 主动买入成交量, 主动买入成交额, 忽略]
+                    var kline = new Kline
+                    {
+                        OpenTime = DateTimeOffset.FromUnixTimeMilliseconds(k[0].GetInt64()).UtcDateTime, // 使用UTC时间
+                        OpenPrice = GetDecimalFromJsonElement(k[1]),
+                        HighPrice = GetDecimalFromJsonElement(k[2]),
+                        LowPrice = GetDecimalFromJsonElement(k[3]),
+                        ClosePrice = GetDecimalFromJsonElement(k[4]),
+                        Volume = GetDecimalFromJsonElement(k[5]), // 基础资产成交量
+                        CloseTime = DateTimeOffset.FromUnixTimeMilliseconds(k[6].GetInt64()).UtcDateTime, // 使用UTC时间
+                        QuoteVolume = GetDecimalFromJsonElement(k[7]), // USDT成交额
+                        NumberOfTrades = k.Length > 8 ? k[8].GetInt32() : 0, // 成交笔数
+                        TakerBuyVolume = k.Length > 9 ? GetDecimalFromJsonElement(k[9]) : 0m, // 主动买入成交量
+                        TakerBuyQuoteVolume = k.Length > 10 ? GetDecimalFromJsonElement(k[10]) : 0m // 主动买入成交额
+                    };
+                    
+                    klines.Add(kline);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"解析K线数据失败 {symbol}: {ex.Message}");
+                    continue;
+                }
+            }
+
+            Console.WriteLine($"✅ 获取到 {klines.Count} 条K线数据");
+            System.Diagnostics.Debug.WriteLine($"成功解析 {klines.Count} 条K线数据（时间范围）: {symbol}");
+            return klines;
+        }
+
         public async Task<PriceStatistics> Get24hrPriceStatisticsAsync(string symbol)
         {
             var response = await _httpClient.GetAsync($"{_baseUrl}/api/v3/ticker/24hr?symbol={symbol}");

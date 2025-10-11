@@ -173,6 +173,63 @@
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" BorderThickness="0"
+                                Padding="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 热点追踪按钮 -->
+            <Button x:Name="btnHotspotTrackingMenu" 
+                    Content="🔥 热点追踪" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#FF5722" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnHotspotTracking_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 近期涨幅榜追踪按钮 -->
+            <Button x:Name="btnGainerTrackingMenu" 
+                    Content="📈 近期涨幅榜追踪" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#4CAF50" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnGainerTracking_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 近期跌幅榜追踪按钮 -->
+            <Button x:Name="btnLoserTrackingMenu" 
+                    Content="📉 近期跌幅榜追踪" 
+                    Height="50" Margin="0,0,0,15"
+                    Background="#F44336" Foreground="White"
+                    FontSize="14" FontWeight="SemiBold"
+                    Click="BtnLoserTracking_Click"
+                    ToolTip="监控跌幅榜合约变化">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
                                 CornerRadius="8" 
                                 BorderThickness="0">
                             <ContentPresenter HorizontalAlignment="Center" 
@@ -271,6 +328,8 @@
                                     Background="#17A2B8" Foreground="White" Margin="0,0,10,0" Click="BtnCalculateHighLow_Click"/>
                             <Button x:Name="btnMaDistance" Content="展示均线距离" Width="140" Height="35" 
                                     Background="#9C27B0" Foreground="White" Margin="0,0,10,0" Click="BtnMaDistance_Click"/>
+                            <Button x:Name="btnHotspotTracking" Content="🔥 热点追踪" Width="140" Height="35" 
+                                    Background="#FF5722" Foreground="White" Margin="0,0,10,0" Click="BtnHotspotTracking_Click"/>
                             <Button x:Name="btnAdvancedFilter" Content="高级筛选工具" Width="140" Height="35" 
                                     Background="#FF6B35" Foreground="White" Margin="0,0,10,0" Click="BtnAdvancedFilter_Click"/>
                         </StackPanel>

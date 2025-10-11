@@ -105,4 +105,4 @@ if exist "%ZIP_NAME%" (
     echo.
 )
 
-pause 
+::pause 

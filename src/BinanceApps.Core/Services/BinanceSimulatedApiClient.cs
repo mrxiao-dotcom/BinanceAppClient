@@ -242,6 +242,17 @@ namespace BinanceApps.Core.Services
             return _dataManager.GetKlines(symbol, interval, limit);
         }
 
+        /// <summary>
+        /// 获取指定时间范围的K线数据（用于智能增量下载）
+        /// 模拟API客户端：直接调用原有方法，忽略时间范围参数
+        /// </summary>
+        public async Task<List<Kline>> GetKlinesAsync(string symbol, KlineInterval interval, DateTime startTime, DateTime? endTime = null, int limit = 1000)
+        {
+            await Task.CompletedTask;
+            // 模拟API：直接调用原有方法，返回指定数量的K线
+            return _dataManager.GetKlines(symbol, interval, limit);
+        }
+
         public async Task<PriceStatistics> Get24hrPriceStatisticsAsync(string symbol)
         {
             await Task.CompletedTask;

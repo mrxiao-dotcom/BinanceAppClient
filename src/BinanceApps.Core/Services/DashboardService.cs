@@ -19,6 +19,8 @@ namespace BinanceApps.Core.Services
         private readonly MaDistanceService _maService;
         private readonly KlineDataStorageService _klineStorageService;
         private readonly ContractInfoService _contractInfoService;
+        private readonly TickerCacheService _tickerCacheService;
+        private readonly SymbolInfoCacheService _symbolInfoCacheService;
         
         public DashboardService(
             ILogger<DashboardService> logger,
@@ -26,7 +28,9 @@ namespace BinanceApps.Core.Services
             MarketPositionService positionService,
             MaDistanceService maService,
             KlineDataStorageService klineStorageService,
-            ContractInfoService contractInfoService)
+            ContractInfoService contractInfoService,
+            TickerCacheService tickerCacheService,
+            SymbolInfoCacheService symbolInfoCacheService)
         {
             _logger = logger;
             _apiClient = apiClient;
@@ -34,6 +38,8 @@ namespace BinanceApps.Core.Services
             _maService = maService;
             _klineStorageService = klineStorageService;
             _contractInfoService = contractInfoService;
+            _tickerCacheService = tickerCacheService;
+            _symbolInfoCacheService = symbolInfoCacheService;
         }
         
         /// <summary>
@@ -50,9 +56,9 @@ namespace BinanceApps.Core.Services
             
             try
             {
-                // 1. 获取所有可交易的合约信息（过滤掉已下架的合约）
+                // 1. 从缓存获取所有可交易的合约信息（过滤掉已下架的合约）
                 _logger.LogInformation("正在获取可交易合约列表...");
-                var allSymbols = await _apiClient.GetAllSymbolsInfoAsync();
+                var allSymbols = await _symbolInfoCacheService.GetAllSymbolsInfoAsync();
                 var tradingSymbols = new HashSet<string>();
                 
                 if (allSymbols != null && allSymbols.Count > 0)
@@ -64,8 +70,8 @@ namespace BinanceApps.Core.Services
                     _logger.LogInformation($"找到 {tradingSymbols.Count} 个可交易的USDT永续合约");
                 }
                 
-                // 2. 获取ticker数据
-                var allTickers = await _apiClient.GetAllTicksAsync();
+                // 2. 从缓存获取ticker数据
+                var allTickers = await _tickerCacheService.GetAllTickersAsync();
                 _logger.LogInformation($"获取到 {allTickers.Count} 个合约的ticker数据");
                 
                 // 3. 只保留可交易的合约（过滤掉下架品种）
@@ -151,8 +157,8 @@ namespace BinanceApps.Core.Services
             
             try
             {
-                // 获取所有合约的ticker数据
-                var tickers = await _apiClient.GetAllTicksAsync();
+                // 从缓存获取所有合约的ticker数据
+                var tickers = await _tickerCacheService.GetAllTickersAsync();
                 
                 foreach (var ticker in tickers)
                 {
@@ -460,29 +466,51 @@ namespace BinanceApps.Core.Services
         }
         
         /// <summary>
-        /// 分析波动信号
+        /// 分析波动信号（结合涨跌比例和波动率综合判断市场状态）
         /// </summary>
         private SignalDetail AnalyzeVolatilitySignal(MarketDynamics market)
         {
             var signal = new SignalDetail { Name = "波动信号" };
             
-            if (market.HighVolatilityRatio > 50)
+            var isBullish = market.RisingRatio > 50;  // 上涨比例>50%判定为牛市
+            var isHighVolatility = market.HighVolatilityRatio > 50; // 高波动比例>50%判定为高波动
+            var isLowVolatility = market.HighVolatilityRatio < 40; // 高波动比例<40%判定为低波动
+            
+            // 组合判断市场阶段
+            if (isBullish && isHighVolatility)
             {
+                // 牛市 + 高波动 = 疯狂期
                 signal.Signal = MarketSignal.Bullish;
-                signal.Description = "牛市";
-                signal.RawData = $"高波动:{market.HighVolatilityRatio:F1}%，低波动:{(100 - market.HighVolatilityRatio):F1}%";
+                signal.Description = "疯狂期";
+                signal.RawData = $"涨:{market.RisingRatio:F1}%，高波动:{market.HighVolatilityRatio:F1}%";
             }
-            else if (market.HighVolatilityRatio < 40)
+            else if (isBullish && isLowVolatility)
             {
+                // 牛市 + 低波动 = 调整期
+                signal.Signal = MarketSignal.Neutral;
+                signal.Description = "调整期";
+                signal.RawData = $"涨:{market.RisingRatio:F1}%，高波动:{market.HighVolatilityRatio:F1}%";
+            }
+            else if (!isBullish && isHighVolatility)
+            {
+                // 熊市 + 高波动 = 恐慌期
                 signal.Signal = MarketSignal.Bearish;
-                signal.Description = "熊市";
-                signal.RawData = $"高波动:{market.HighVolatilityRatio:F1}%，低波动:{(100 - market.HighVolatilityRatio):F1}%";
+                signal.Description = "恐慌期";
+                signal.RawData = $"涨:{market.RisingRatio:F1}%，高波动:{market.HighVolatilityRatio:F1}%";
+            }
+            else if (!isBullish && isLowVolatility)
+            {
+                // 熊市 + 低波动 = 低迷期
+                signal.Signal = MarketSignal.Bearish;
+                signal.Description = "低迷期";
+                signal.RawData = $"涨:{market.RisingRatio:F1}%，高波动:{market.HighVolatilityRatio:F1}%";
             }
             else
             {
+                // 其他情况（过渡阶段）
                 signal.Signal = MarketSignal.Neutral;
-                signal.Description = "中性";
-                signal.RawData = $"高波动:{market.HighVolatilityRatio:F1}%，低波动:{(100 - market.HighVolatilityRatio):F1}%";
+                signal.Description = "过渡期";
+                signal.RawData = $"涨:{market.RisingRatio:F1}%，高波动:{market.HighVolatilityRatio:F1}%";
             }
             
             return signal;

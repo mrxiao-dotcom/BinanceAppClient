@@ -106,6 +106,17 @@ namespace BinanceApps.Core.Interfaces
         Task<List<Kline>> GetKlinesAsync(string symbol, KlineInterval interval, int limit = 500);
 
         /// <summary>
+        /// 获取指定时间范围的K线数据（用于智能增量下载）
+        /// </summary>
+        /// <param name="symbol">交易对</param>
+        /// <param name="interval">时间间隔</param>
+        /// <param name="startTime">开始时间</param>
+        /// <param name="endTime">结束时间（可选）</param>
+        /// <param name="limit">最大数量（默认1000）</param>
+        /// <returns>K线数据列表</returns>
+        Task<List<Kline>> GetKlinesAsync(string symbol, KlineInterval interval, DateTime startTime, DateTime? endTime = null, int limit = 1000);
+
+        /// <summary>
         /// 获取24小时价格统计
         /// </summary>
         /// <param name="symbol">交易对</param>

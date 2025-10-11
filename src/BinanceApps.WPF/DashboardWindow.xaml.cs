@@ -16,6 +16,21 @@ namespace BinanceApps.WPF
         private readonly DashboardService _dashboardService;
         private DispatcherTimer? _autoRefreshTimer;
         
+        // 期货和趋势投资名人名言列表
+        private readonly List<(string Quote, string Author)> _investmentQuotes = new()
+        {
+            ("趋势一旦形成，就会延续下去。顺势而为，永远不要逆势操作。", "杰西·利弗莫尔"),
+            ("在期货市场中，赚大钱的秘诀在于：及时止损，让利润奔跑。", "威廉·欧奈尔"),
+            ("市场永远是对的，错的只是我们自己。学会与市场共舞，而不是对抗市场。", "乔治·索罗斯"),
+            ("成功的交易者不是预测未来，而是对市场的变化做出快速反应。", "保罗·都铎·琼斯"),
+            ("在牛市中赚钱容易，但真正的智慧在于熊市中保住本金。", "沃伦·巴菲特"),
+            ("最好的交易机会往往出现在别人恐慌的时候。贪婪时要恐惧，恐惧时要贪婪。", "沃伦·巴菲特"),
+            ("趋势就像河流，我们无法改变它的方向，只能顺流而下。", "拉瑞·威廉斯"),
+            ("优秀的交易者懂得耐心等待最佳时机，而不是每天都要交易。", "斯坦利·克罗"),
+            ("在期货交易中，资金管理比预测行情更重要。控制风险才能长期生存。", "约翰·墨菲"),
+            ("挑选你的对手，在更容易赚钱的地方下注。这里不是你唯一的市场，或者你可以等这个市场热了再下注。", "匿名")
+        };
+        
         public DashboardWindow(ILogger<DashboardWindow> logger, DashboardService dashboardService)
         {
             InitializeComponent();
@@ -29,7 +44,24 @@ namespace BinanceApps.WPF
         
         private async void DashboardWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // 随机显示一条投资名言
+            ShowRandomQuote();
+            
             await LoadDashboardDataAsync();
+        }
+        
+        /// <summary>
+        /// 显示随机投资名言
+        /// </summary>
+        private void ShowRandomQuote()
+        {
+            var random = new Random();
+            var index = random.Next(_investmentQuotes.Count);
+            var (quote, author) = _investmentQuotes[index];
+            
+            // 更新投资建议文本
+            txtInvestmentQuote.Text = quote;
+            txtQuoteAuthor.Text = $"—— {author}";
         }
         
         /// <summary>

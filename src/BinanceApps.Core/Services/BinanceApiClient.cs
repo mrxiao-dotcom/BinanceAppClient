@@ -172,6 +172,16 @@ namespace BinanceApps.Core.Services
         }
 
         /// <summary>
+        /// 获取指定时间范围的K线数据（用于智能增量下载）
+        /// </summary>
+        public async Task<List<Kline>> GetKlinesAsync(string symbol, KlineInterval interval, DateTime startTime, DateTime? endTime = null, int limit = 1000)
+        {
+            // 这里应该调用实际的API
+            await Task.CompletedTask;
+            throw new NotImplementedException("真实API实现待完成");
+        }
+
+        /// <summary>
         /// 获取24小时价格统计
         /// </summary>
         /// <param name="symbol">交易对</param>

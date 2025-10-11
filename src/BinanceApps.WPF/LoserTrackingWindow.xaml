@@ -1,0 +1,310 @@
+<Window x:Class="BinanceApps.WPF.LoserTrackingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="近期跌幅榜追踪" Height="900" Width="1600"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    
+    <Window.Resources>
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+            <Setter Property="Background" Value="#D13438"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 参数和控制区域 -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" 
+                BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock Text="N天跌幅:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtNDays" Width="60" Height="28" Text="30" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="天" VerticalAlignment="Center" Margin="2,0,15,0"/>
+                    
+                    <TextBlock Text="排行数:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtTopCount" Width="60" Height="28" Text="30" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="名" VerticalAlignment="Center" Margin="2,0,15,0"/>
+                    
+                    <TextBlock Text="反弹一区:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtReboundZone1" Width="60" Height="28" Text="10" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="%" VerticalAlignment="Center" Margin="2,0,15,0"/>
+                    
+                    <TextBlock Text="反弹二区:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtReboundZone2" Width="60" Height="28" Text="20" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="%" VerticalAlignment="Center" Margin="2,0,15,0"/>
+                    
+                    <TextBlock Text="扫描间隔:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtScanInterval" Width="60" Height="28" Text="5" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="秒" VerticalAlignment="Center" Margin="2,0,15,0"/>
+                    
+                    <TextBlock Text="缓存时间:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtCacheExpiry" Width="60" Height="28" Text="240" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="小时" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                </WrapPanel>
+                
+                <StackPanel Grid.Row="1" Orientation="Horizontal">
+                    <Button x:Name="btnToggleMonitoring" Content="启动监控" Width="120" Height="32" 
+                            Style="{StaticResource ButtonStyle}" Click="BtnToggleMonitoring_Click"/>
+                    
+                    <TextBlock x:Name="txtStatus" VerticalAlignment="Center" 
+                               Margin="20,0,0,0" Foreground="#666" Text="就绪"/>
+                    
+                    <TextBlock x:Name="txtNextScan" VerticalAlignment="Center" 
+                               Margin="20,0,0,0" Foreground="#0078D4"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- 数据区域 -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- 左上：实时跌幅榜 -->
+            <Border Grid.Row="0" Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    Background="White" CornerRadius="4" Margin="0,0,5,5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border Grid.Row="0" Background="#F44336" Padding="10" 
+                            MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown" 
+                            Tag="dgRealtime" Cursor="Hand">
+                        <TextBlock HorizontalAlignment="Center" Foreground="White">
+                            <Run Text="📉 实时跌幅榜" FontSize="14" FontWeight="Bold"/>
+                            <Run x:Name="txtRealtimeCount" Text="(0个)" FontSize="12"/>
+                        </TextBlock>
+                    </Border>
+                    
+                    <DataGrid x:Name="dgRealtime" Grid.Row="1" 
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column" AlternatingRowBackground="#FFEBEE"
+                              CanUserSortColumns="True" FontSize="13"
+                              MouseDoubleClick="DataGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="排名" Binding="{Binding Rank}" Width="40"/>
+                            <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="70"/>
+                            <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=\{0:F4\}}" Width="70"/>
+                            <DataGridTextColumn Header="N天跌幅" Binding="{Binding NDayLossPercent, StringFormat=\{0:F2\}%}" Width="75"/>
+                            <DataGridTextColumn Header="24H涨幅" Binding="{Binding PriceChangePercent24h, StringFormat=\{0:F2\}%}" Width="70"/>
+                            <DataGridTextColumn Header="24H成交额" Binding="{Binding QuoteVolume24h, StringFormat=\{0:N0\}}" Width="90"/>
+                            <DataGridTextColumn Header="量比" Binding="{Binding VolumeRatio, StringFormat=\{0:F1\}%}" Width="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+            
+            <!-- 左下：缓存回收区 -->
+            <Border Grid.Row="1" Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    Background="White" CornerRadius="4" Margin="0,5,5,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Border Grid.Row="0" Background="#9E9E9E" Padding="8"
+                            MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown"
+                            Tag="dgRecycled" Cursor="Hand">
+                        <TextBlock HorizontalAlignment="Center" Foreground="White">
+                            <Run Text="♻️ 缓存回收区" FontSize="13" FontWeight="Bold"/>
+                            <Run x:Name="txtRecycledCount" Text="(0个)" FontSize="11"/>
+                        </TextBlock>
+                    </Border>
+                    
+                    <DataGrid x:Name="dgRecycled" Grid.Row="1" 
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column" AlternatingRowBackground="#F5F5F5"
+                              CanUserSortColumns="True" FontSize="13"
+                              MouseDoubleClick="DataGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="80"/>
+                            <DataGridTextColumn Header="回收时间" Binding="{Binding RecycleTime, StringFormat=\{0:MM-dd HH:mm\}}" Width="100"/>
+                            <DataGridTextColumn Header="缓存时长(h)" Binding="{Binding CachedDurationHours, StringFormat=\{0:F0\}}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+            
+            <!-- 右侧：2x2网格 -->
+            <Grid Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="5,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 左上：跌幅榜缓存区 -->
+                <Border Grid.Row="0" Grid.Column="0" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="0,0,5,5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#2196F3" Padding="8"
+                                MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown"
+                                Tag="dgCached" Cursor="Hand">
+                            <TextBlock HorizontalAlignment="Center" Foreground="White">
+                                <Run Text="📦 跌幅榜缓存区" FontSize="13" FontWeight="Bold"/>
+                                <Run x:Name="txtCachedCount" Text="(0个)" FontSize="11"/>
+                            </TextBlock>
+                        </Border>
+                        
+                        <DataGrid x:Name="dgCached" Grid.Row="1" 
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" AlternatingRowBackground="#E3F2FD"
+                                  CanUserSortColumns="True" FontSize="12"
+                                  MouseDoubleClick="DataGrid_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="65"/>
+                                <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=\{0:F4\}}" Width="60"/>
+                                <DataGridTextColumn Header="录入价" Binding="{Binding EntryPrice, StringFormat=\{0:F4\}}" Width="60"/>
+                                <DataGridTextColumn Header="录入排名" Binding="{Binding EntryRank}" Width="55"/>
+                                <DataGridTextColumn Header="录入后最低" Binding="{Binding LowestPriceAfterEntry, StringFormat=\{0:F4\}}" Width="70"/>
+                                
+                                <!-- 录入后跌幅 - 红色显示 -->
+                                <DataGridTemplateColumn Header="录入后跌幅" Width="70">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding PriceLossFromEntry, StringFormat=\{0:F1\}%}" 
+                                                       Foreground="Red"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                
+                                <!-- 当前反弹 - 绿色显示 -->
+                                <DataGridTemplateColumn Header="当前反弹" Width="65">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding CurrentReboundPercent, StringFormat=\{0:F1\}%}" 
+                                                       Foreground="Green"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                
+                                <DataGridTextColumn Header="录入时间" Binding="{Binding EntryTime, StringFormat=\{0:MM-dd HH:mm\}}" Width="80"/>
+                                <DataGridTextColumn Header="剩余(h)" Binding="{Binding RemainingCacheHours, StringFormat=\{0:F1\}}" Width="55"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                
+                <!-- 右上：反弹一区 -->
+                <Border Grid.Row="0" Grid.Column="1" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="5,0,0,5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#4CAF50" Padding="8"
+                                MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown"
+                                Tag="dgRebound1" Cursor="Hand">
+                            <TextBlock HorizontalAlignment="Center" Foreground="White">
+                                <Run Text="📈 反弹一区" FontSize="13" FontWeight="Bold"/>
+                                <Run x:Name="txtRebound1Count" Text="(0个)" FontSize="11"/>
+                            </TextBlock>
+                        </Border>
+                        
+                        <DataGrid x:Name="dgRebound1" Grid.Row="1" 
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" AlternatingRowBackground="#E8F5E9"
+                                  CanUserSortColumns="True" FontSize="13"
+                                  MouseDoubleClick="DataGrid_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="80"/>
+                                <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=\{0:F4\}}" Width="70"/>
+                                <DataGridTextColumn Header="最低价" Binding="{Binding LowestPriceAfterEntry, StringFormat=\{0:F4\}}" Width="70"/>
+                                <DataGridTextColumn Header="反弹" Binding="{Binding CurrentReboundPercent, StringFormat=\{0:F1\}%}" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                
+                <!-- 左下：反弹二区 -->
+                <Border Grid.Row="1" Grid.Column="0" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="0,5,5,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Border Grid.Row="0" Background="#8BC34A" Padding="8"
+                                MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown"
+                                Tag="dgRebound2" Cursor="Hand">
+                            <TextBlock HorizontalAlignment="Center" Foreground="White">
+                                <Run Text="🚀 反弹二区" FontSize="13" FontWeight="Bold"/>
+                                <Run x:Name="txtRebound2Count" Text="(0个)" FontSize="11"/>
+                            </TextBlock>
+                        </Border>
+                        
+                        <DataGrid x:Name="dgRebound2" Grid.Row="1" 
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  RowHeaderWidth="0" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" AlternatingRowBackground="#F1F8E9"
+                                  CanUserSortColumns="True" FontSize="13"
+                                  MouseDoubleClick="DataGrid_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="80"/>
+                                <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=\{0:F4\}}" Width="70"/>
+                                <DataGridTextColumn Header="最低价" Binding="{Binding LowestPriceAfterEntry, StringFormat=\{0:F4\}}" Width="70"/>
+                                <DataGridTextColumn Header="反弹" Binding="{Binding CurrentReboundPercent, StringFormat=\{0:F1\}%}" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                
+                <!-- 右下：空白预留区域 -->
+                <Border Grid.Row="1" Grid.Column="1" BorderBrush="#E0E0E0" 
+                        BorderThickness="1" Background="White" CornerRadius="4" 
+                        Margin="5,5,0,0">
+                    <TextBlock Text="预留区域" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                               Foreground="#999" FontSize="14"/>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
+

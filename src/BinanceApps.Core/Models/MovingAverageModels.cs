@@ -29,6 +29,16 @@ namespace BinanceApps.Core.Models
         public decimal QuoteVolume { get; set; }
         
         /// <summary>
+        /// 流通市值 (USDT)
+        /// </summary>
+        public decimal? CirculatingMarketCap { get; set; }
+        
+        /// <summary>
+        /// 量比 (24H成交额 / 流通市值)
+        /// </summary>
+        public decimal? VolumeRatio { get; set; }
+        
+        /// <summary>
         /// N天移动平均线
         /// </summary>
         public decimal MovingAverage { get; set; }

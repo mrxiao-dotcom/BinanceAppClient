@@ -85,12 +85,21 @@
                 </Border.Effect>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="💡" FontSize="28" VerticalAlignment="Center" Margin="0,0,15,0"/>
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#E65100" 
-                               VerticalAlignment="Center" TextWrapping="Wrap">
-                        <Run Text="投资建议："/>
-                        <Run Text="挑选你的对手，在更容易赚钱的地方下注，这里不是你唯一的市场，或者你可以等这个市场热了再下注" 
-                             FontWeight="Bold" Foreground="#D84315"/>
-                    </TextBlock>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#E65100" TextWrapping="Wrap">
+                            <Run Text="投资名言："/>
+                            <Run x:Name="txtInvestmentQuote" 
+                                 Text="挑选你的对手，在更容易赚钱的地方下注，这里不是你唯一的市场，或者你可以等这个市场热了再下注" 
+                                 FontWeight="Bold" Foreground="#D84315"/>
+                        </TextBlock>
+                        <TextBlock x:Name="txtQuoteAuthor" 
+                                   Text="—— 匿名" 
+                                   FontSize="13" 
+                                   Foreground="#BF360C" 
+                                   FontStyle="Italic"
+                                   Margin="0,5,0,0"
+                                   HorizontalAlignment="Right"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </Border>

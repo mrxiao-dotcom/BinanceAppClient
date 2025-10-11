@@ -1,0 +1,614 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using BinanceApps.Core.Interfaces;
+using BinanceApps.Core.Models;
+using Microsoft.Extensions.Logging;
+
+namespace BinanceApps.Core.Services
+{
+    /// <summary>
+    /// 鐑偣杩借釜鏈嶅姟
+    /// </summary>
+    public class HotspotTrackingService
+    {
+        private readonly ILogger<HotspotTrackingService> _logger;
+        private readonly IBinanceSimulatedApiClient _apiClient;
+        private readonly KlineDataStorageService _klineStorageService;
+        private readonly ContractInfoService _contractInfoService;
+        private readonly string _dataDirectory;
+        
+        public HotspotTrackingService(
+            ILogger<HotspotTrackingService> logger,
+            IBinanceSimulatedApiClient apiClient,
+            KlineDataStorageService klineStorageService,
+            ContractInfoService contractInfoService)
+        {
+            _logger = logger;
+            _apiClient = apiClient;
+            _klineStorageService = klineStorageService;
+            _contractInfoService = contractInfoService;
+            
+            // 鏁版嵁鐩綍锛欰ppData\Local\BinanceApps\HotspotTracking
+            _dataDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BinanceApps",
+                "HotspotTracking"
+            );
+            
+            Directory.CreateDirectory(_dataDirectory);
+        }
+        
+        /// <summary>
+        /// 鎵弿鐑偣鍚堢害锛堝绾跨▼浼樺寲锛?
+        /// </summary>
+        public async Task<List<HotspotContract>> ScanHotspotContractsAsync(HotspotTrackingConfig config)
+        {
+            return await Task.Run(async () =>
+            {
+                try
+                {
+                    // 1. 鑾峰彇鎵€鏈夊彲浜ゆ槗鐨勫悎绾︿俊鎭紙杩囨护鎺夊凡涓嬫灦鐨勫悎绾︼級
+                    _logger.LogInformation("姝ｅ湪鑾峰彇鍙氦鏄撳悎绾﹀垪琛?..");
+                    var allSymbols = await _apiClient.GetAllSymbolsInfoAsync().ConfigureAwait(false);
+                    var tradingSymbols = new HashSet<string>();
+                    
+                    if (allSymbols != null && allSymbols.Count > 0)
+                    {
+                        tradingSymbols = allSymbols
+                            .Where(s => s.IsTrading && s.QuoteAsset == "USDT" && s.ContractType == ContractType.Perpetual)
+                            .Select(s => s.Symbol)
+                            .ToHashSet();
+                        _logger.LogInformation($"鎵惧埌 {tradingSymbols.Count} 涓彲浜ゆ槗鐨刄SDT姘哥画鍚堢害");
+                    }
+                    
+                    // 2. 鑾峰彇鎵€鏈塼icker鏁版嵁
+                    var allTickers = await _apiClient.GetAllTicksAsync().ConfigureAwait(false);
+                    _logger.LogInformation($"鑾峰彇鍒?{allTickers.Count} 涓悎绾︾殑ticker鏁版嵁");
+                    
+                    // 3. 鍙繚鐣欏彲浜ゆ槗鐨勫悎绾︼紙杩囨护鎺変笅鏋跺搧绉嶏級
+                    var tickers = allTickers;
+                    if (tradingSymbols.Count > 0)
+                    {
+                        var originalCount = allTickers.Count;
+                        tickers = allTickers.Where(t => tradingSymbols.Contains(t.Symbol)).ToList();
+                        var filteredCount = originalCount - tickers.Count;
+                        _logger.LogInformation($"杩囨护鎺?{filteredCount} 涓笉鍙氦鏄撴垨闈炴案缁悎绾︼紝鍓╀綑 {tickers.Count} 涓?);
+                    }
+                    
+                    _logger.LogInformation($"寮€濮嬫壂鎻忕儹鐐瑰悎绾︼紝ticker鏁伴噺: {tickers.Count}");
+                    
+                    // 4. 浣跨敤骞惰澶勭悊锛堥檺鍒跺苟鍙戞暟涓?0锛?
+                    var semaphore = new System.Threading.SemaphoreSlim(20);
+                    var tasks = tickers.Select(async ticker =>
+                    {
+                        await semaphore.WaitAsync().ConfigureAwait(false);
+                        try
+                        {
+                            return await ProcessTickerAsync(ticker, config).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    });
+                    
+                    var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+                    var hotspots = results.Where(r => r != null).Select(r => r!).ToList();
+                    
+                    _logger.LogInformation($"鎵弿瀹屾垚锛屽彂鐜?{hotspots.Count} 涓儹鐐瑰悎绾?);
+                    return hotspots;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "鎵弿鐑偣鍚堢害鏃跺彂鐢熼敊璇?);
+                    return new List<HotspotContract>();
+                }
+            }).ConfigureAwait(false);
+        }
+        
+        /// <summary>
+        /// 鎵弿閲忔瘮寮傚姩鍜岀儹鐐瑰悎绾︼紙杩斿洖涓ょ鏁版嵁锛?
+        /// </summary>
+        public async Task<(List<HotspotContract> VolumeAnomalyContracts, List<HotspotContract> RealtimeHotspots)> 
+            ScanHotspotContractsWithAnomalyAsync(HotspotTrackingConfig config)
+        {
+            return await Task.Run(async () =>
+            {
+                try
+                {
+                    // 1. 鑾峰彇鎵€鏈夊彲浜ゆ槗鐨勫悎绾︿俊鎭紙杩囨护鎺夊凡涓嬫灦鐨勫悎绾︼級
+                    _logger.LogInformation("姝ｅ湪鑾峰彇鍙氦鏄撳悎绾﹀垪琛?..");
+                    var allSymbols = await _apiClient.GetAllSymbolsInfoAsync().ConfigureAwait(false);
+                    var tradingSymbols = new HashSet<string>();
+                    
+                    if (allSymbols != null && allSymbols.Count > 0)
+                    {
+                        tradingSymbols = allSymbols
+                            .Where(s => s.IsTrading && s.QuoteAsset == "USDT" && s.ContractType == ContractType.Perpetual)
+                            .Select(s => s.Symbol)
+                            .ToHashSet();
+                        _logger.LogInformation($"鎵惧埌 {tradingSymbols.Count} 涓彲浜ゆ槗鐨刄SDT姘哥画鍚堢害");
+                    }
+                    
+                    // 2. 鑾峰彇鎵€鏈塼icker鏁版嵁
+                    var allTickers = await _apiClient.GetAllTicksAsync().ConfigureAwait(false);
+                    _logger.LogInformation($"鑾峰彇鍒?{allTickers.Count} 涓悎绾︾殑ticker鏁版嵁");
+                    
+                    // 3. 鍙繚鐣欏彲浜ゆ槗鐨勫悎绾︼紙杩囨护鎺変笅鏋跺搧绉嶏級
+                    var tickers = allTickers;
+                    if (tradingSymbols.Count > 0)
+                    {
+                        var originalCount = allTickers.Count;
+                        tickers = allTickers.Where(t => tradingSymbols.Contains(t.Symbol)).ToList();
+                        var filteredCount = originalCount - tickers.Count;
+                        _logger.LogInformation($"杩囨护鎺?{filteredCount} 涓笉鍙氦鏄撴垨闈炴案缁悎绾︼紝鍓╀綑 {tickers.Count} 涓?);
+                    }
+                    
+                    _logger.LogInformation($"寮€濮嬫壂鎻忕儹鐐瑰悎绾﹀拰閲忔瘮寮傚姩锛宼icker鏁伴噺: {tickers.Count}");
+                    
+                    // 4. 浣跨敤骞惰澶勭悊锛堥檺鍒跺苟鍙戞暟涓?0锛?
+                    var semaphore = new System.Threading.SemaphoreSlim(20);
+                    var tasks = tickers.Select(async ticker =>
+                    {
+                        await semaphore.WaitAsync().ConfigureAwait(false);
+                        try
+                        {
+                            return await ProcessTickerWithAnomalyAsync(ticker, config).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    });
+                    
+                    var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+                    
+                    // 鍒嗙涓ょ缁撴灉
+                    var volumeAnomalies = new List<HotspotContract>();
+                    var realtimeHotspots = new List<HotspotContract>();
+                    
+                    foreach (var (anomaly, hotspot) in results)
+                    {
+                        if (anomaly != null)
+                            volumeAnomalies.Add(anomaly);
+                        if (hotspot != null)
+                            realtimeHotspots.Add(hotspot);
+                    }
+                    
+                    _logger.LogInformation($"鎵弿瀹屾垚锛岄噺姣斿紓鍔? {volumeAnomalies.Count} 涓紝瀹炴椂鐑偣: {realtimeHotspots.Count} 涓?);
+                    return (volumeAnomalies, realtimeHotspots);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "鎵弿鐑偣鍚堢害鏃跺彂鐢熼敊璇?);
+                    return (new List<HotspotContract>(), new List<HotspotContract>());
+                }
+            }).ConfigureAwait(false);
+        }
+        
+        /// <summary>
+        /// 澶勭悊鍗曚釜ticker骞惰繑鍥為噺姣斿紓鍔ㄥ拰鐑偣鏁版嵁
+        /// </summary>
+        private async Task<(HotspotContract? VolumeAnomaly, HotspotContract? RealtimeHotspot)> 
+            ProcessTickerWithAnomalyAsync(PriceStatistics ticker, HotspotTrackingConfig config)
+        {
+            try
+            {
+                // 1. 璁＄畻閲忔瘮
+                var contractInfo = _contractInfoService.GetContractInfo(ticker.Symbol);
+                if (contractInfo == null || contractInfo.CirculatingSupply <= 0)
+                    return (null, null);
+                
+                var circulatingMarketCap = contractInfo.CirculatingSupply * ticker.LastPrice;
+                if (circulatingMarketCap <= 0)
+                    return (null, null);
+                
+                var volumeRatio = (ticker.QuoteVolume / circulatingMarketCap) * 100m; // 杞负鐧惧垎姣?
+                
+                // 2. 妫€鏌ラ噺姣旀槸鍚﹁秴杩囬槇鍊?
+                if (volumeRatio < config.VolumeRatioThreshold)
+                    return (null, null);
+                
+                // 3. 鍒涘缓閲忔瘮寮傚姩瀵硅薄锛堝彧瑕侀噺姣旇秴闃堝€硷級
+                var volumeAnomaly = new HotspotContract
+                {
+                    Symbol = ticker.Symbol,
+                    LastPrice = ticker.LastPrice,
+                    PriceChangePercent24h = ticker.PriceChangePercent,
+                    QuoteVolume24h = ticker.QuoteVolume,
+                    VolumeRatio = volumeRatio,
+                    CirculatingMarketCap = circulatingMarketCap
+                };
+                
+                // 4. 璁＄畻N澶╂渶楂樹环锛堢敤浜庡垽鏂槸鍚︽槸瀹炴椂鐑偣锛?
+                var highPriceNDays = await CalculateNDayHighPriceAsync(ticker.Symbol, config.HighPriceDays).ConfigureAwait(false);
+                if (!highPriceNDays.HasValue)
+                    return (volumeAnomaly, null); // 鍙繑鍥為噺姣斿紓鍔?
+                
+                // 5. 妫€鏌ユ槸鍚﹁秴杩嘚澶╂渶楂樹环锛堝疄鏃剁儹鐐圭殑棰濆鏉′欢锛?
+                if (ticker.LastPrice <= highPriceNDays.Value)
+                    return (volumeAnomaly, null); // 鍙繑鍥為噺姣斿紓鍔?
+                
+                // 6. 璁＄畻鐩稿N澶╂渶楂樹环鐨勬定骞?
+                var priceChangeFromHigh = ((ticker.LastPrice - highPriceNDays.Value) / highPriceNDays.Value) * 100m;
+                
+                // 7. 鍒涘缓瀹炴椂鐑偣瀵硅薄锛堥噺姣旇秴闃堝€间笖瓒匩澶╂渶楂橈級
+                var realtimeHotspot = new HotspotContract
+                {
+                    Symbol = ticker.Symbol,
+                    LastPrice = ticker.LastPrice,
+                    PriceChangePercent24h = ticker.PriceChangePercent,
+                    QuoteVolume24h = ticker.QuoteVolume,
+                    VolumeRatio = volumeRatio,
+                    HighPriceNDays = highPriceNDays.Value,
+                    PriceChangeFromNDayHigh = priceChangeFromHigh,
+                    CirculatingMarketCap = circulatingMarketCap
+                };
+                
+                return (volumeAnomaly, realtimeHotspot);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"澶勭悊鍚堢害 {ticker.Symbol} 鏃跺嚭閿? {ex.Message}");
+                return (null, null);
+            }
+        }
+        
+        /// <summary>
+        /// 澶勭悊鍗曚釜ticker锛堟彁鍙栦负鐙珛鏂规硶浠ユ敮鎸佸苟琛岋級
+        /// </summary>
+        private async Task<HotspotContract?> ProcessTickerAsync(PriceStatistics ticker, HotspotTrackingConfig config)
+        {
+            try
+            {
+                // 1. 璁＄畻閲忔瘮
+                var contractInfo = _contractInfoService.GetContractInfo(ticker.Symbol);
+                if (contractInfo == null || contractInfo.CirculatingSupply <= 0)
+                    return null;
+                
+                var circulatingMarketCap = contractInfo.CirculatingSupply * ticker.LastPrice;
+                if (circulatingMarketCap <= 0)
+                    return null;
+                
+                var volumeRatio = (ticker.QuoteVolume / circulatingMarketCap) * 100m; // 杞负鐧惧垎姣?
+                
+                // 2. 妫€鏌ラ噺姣旀槸鍚﹁秴杩囬槇鍊?
+                if (volumeRatio < config.VolumeRatioThreshold)
+                    return null;
+                
+                // 3. 璁＄畻N澶╂渶楂樹环锛堜粠鏄ㄥぉ寮€濮嬪線鍓峃澶╋級
+                var highPriceNDays = await CalculateNDayHighPriceAsync(ticker.Symbol, config.HighPriceDays).ConfigureAwait(false);
+                if (!highPriceNDays.HasValue)
+                    return null;
+                
+                // 4. 妫€鏌ユ槸鍚﹁秴杩嘚澶╂渶楂樹环
+                if (ticker.LastPrice <= highPriceNDays.Value)
+                    return null;
+                
+                // 5. 璁＄畻鐩稿N澶╂渶楂樹环鐨勬定骞?
+                var priceChangeFromHigh = ((ticker.LastPrice - highPriceNDays.Value) / highPriceNDays.Value) * 100m;
+                
+                // 6. 鍒涘缓鐑偣鍚堢害瀵硅薄
+                return new HotspotContract
+                {
+                    Symbol = ticker.Symbol,
+                    LastPrice = ticker.LastPrice,
+                    PriceChangePercent24h = ticker.PriceChangePercent,
+                    QuoteVolume24h = ticker.QuoteVolume,
+                    VolumeRatio = volumeRatio,
+                    HighPriceNDays = highPriceNDays.Value,
+                    PriceChangeFromNDayHigh = priceChangeFromHigh,
+                    CirculatingMarketCap = circulatingMarketCap
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"澶勭悊鍚堢害 {ticker.Symbol} 鏃跺嚭閿? {ex.Message}");
+                return null;
+            }
+        }
+        
+        /// <summary>
+        /// 璁＄畻N澶╂渶楂樹环锛堜粠鏄ㄥぉ寮€濮嬪線鍓峃澶╋級
+        /// </summary>
+        private async Task<decimal?> CalculateNDayHighPriceAsync(string symbol, int days)
+        {
+            try
+            {
+                var (klines, success, error) = await _klineStorageService.LoadKlineDataAsync(symbol);
+                if (!success || klines == null || klines.Count == 0)
+                    return null;
+                
+                // 浠庢槰澶╁紑濮嬪線鍓峃澶?
+                var endDate = DateTime.Today; // 浠婂ぉ0鐐癸紙涓嶅寘鍚粖澶╋級
+                var startDate = endDate.AddDays(-days);
+                
+                var relevantKlines = klines
+                    .Where(k => k.OpenTime >= startDate && k.OpenTime < endDate)
+                    .ToList();
+                
+                if (relevantKlines.Count == 0)
+                    return null;
+                
+                return relevantKlines.Max(k => k.HighPrice);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"璁＄畻 {symbol} 鐨凬澶╂渶楂樹环鏃跺嚭閿? {ex.Message}");
+                return null;
+            }
+        }
+        
+        /// <summary>
+        /// 鏇存柊缂撳瓨鍖烘暟鎹紙鍚屾鏂规硶锛屼緵鍚庡彴绾跨▼璋冪敤锛?
+        /// </summary>
+        public async Task UpdateCachedContractsAsync(
+            List<HotspotContract> currentHotspots,
+            Dictionary<string, CachedHotspotContract> cachedContracts,
+            HotspotTrackingConfig config)
+        {
+            // 1. 娣诲姞鏂扮殑鐑偣鍚堢害鍒扮紦瀛樺尯
+            foreach (var hotspot in currentHotspots)
+            {
+                if (cachedContracts.ContainsKey(hotspot.Symbol))
+                {
+                    // 宸插瓨鍦細閲嶇疆鍊掕鏃讹紝鏇存柊鏁版嵁
+                    var cached = cachedContracts[hotspot.Symbol];
+                    cached.LastPrice = hotspot.LastPrice;
+                    cached.PriceChangePercent24h = hotspot.PriceChangePercent24h;
+                    cached.QuoteVolume24h = hotspot.QuoteVolume24h;
+                    cached.VolumeRatio = hotspot.VolumeRatio;
+                    cached.HighPriceNDays = hotspot.HighPriceNDays;
+                    cached.PriceChangeFromNDayHigh = hotspot.PriceChangeFromNDayHigh;
+                    cached.CirculatingMarketCap = hotspot.CirculatingMarketCap;
+                    
+                    // 閲嶇疆鍊掕鏃?
+                    var now = DateTime.Now;
+                    cached.CountdownStartTime = now;
+                    cached.ExpiryTime = now.AddHours(config.CacheExpiryHours);
+                    
+                    // 鏇存柊褰曞叆鍚庢渶楂樹环
+                    if (hotspot.LastPrice > cached.HighestPriceAfterEntry)
+                    {
+                        cached.HighestPriceAfterEntry = hotspot.LastPrice;
+                    }
+                    
+                    _logger.LogDebug($"鏇存柊缂撳瓨鍚堢害: {hotspot.Symbol}, 閲嶇疆鍊掕鏃?);
+                }
+                else
+                {
+                    // 鏂板悎绾︼細娣诲姞鍒扮紦瀛樺尯
+                    var now = DateTime.Now;
+                    var cached = new CachedHotspotContract
+                    {
+                        Symbol = hotspot.Symbol,
+                        LastPrice = hotspot.LastPrice,
+                        PriceChangePercent24h = hotspot.PriceChangePercent24h,
+                        QuoteVolume24h = hotspot.QuoteVolume24h,
+                        VolumeRatio = hotspot.VolumeRatio,
+                        HighPriceNDays = hotspot.HighPriceNDays,
+                        PriceChangeFromNDayHigh = hotspot.PriceChangeFromNDayHigh,
+                        CirculatingMarketCap = hotspot.CirculatingMarketCap,
+                        EntryTime = now,
+                        EntryPrice = hotspot.LastPrice,
+                        EntryNDayHighPrice = hotspot.HighPriceNDays, // 淇濆瓨褰曞叆鏃剁殑N澶╂渶楂樹环
+                        HighestPriceAfterEntry = hotspot.LastPrice,
+                        CountdownStartTime = now,
+                        ExpiryTime = now.AddHours(config.CacheExpiryHours)
+                    };
+                    
+                    cachedContracts[hotspot.Symbol] = cached;
+                    _logger.LogInformation($"鏂板鐑偣鍚堢害鍒扮紦瀛? {hotspot.Symbol}");
+                }
+            }
+            
+            // 2. 鎵归噺鏇存柊涓嶅湪瀹炴椂鐩戞帶鍖虹殑鍚堢害鏁版嵁
+            var currentSymbols = new HashSet<string>(currentHotspots.Select(h => h.Symbol));
+            var contractsToUpdate = cachedContracts.Values
+                .Where(c => !currentSymbols.Contains(c.Symbol))
+                .ToList();
+            
+            if (contractsToUpdate.Any())
+            {
+                // 涓€娆℃€ц幏鍙栨墍鏈塼icker鏁版嵁锛岄伩鍏嶉噸澶嶈姹?
+                try
+                {
+                    var tickers = await _apiClient.GetAllTicksAsync().ConfigureAwait(false);
+                    var tickerDict = tickers.ToDictionary(t => t.Symbol);
+                    
+                    // 鎵归噺鏇存柊浠锋牸
+                    foreach (var cached in contractsToUpdate)
+                    {
+                        if (tickerDict.TryGetValue(cached.Symbol, out var ticker))
+                        {
+                            cached.LastPrice = ticker.LastPrice;
+                            cached.PriceChangePercent24h = ticker.PriceChangePercent;
+                            cached.QuoteVolume24h = ticker.QuoteVolume;
+                            
+                            // 鏇存柊褰曞叆鍚庢渶楂樹环
+                            if (ticker.LastPrice > cached.HighestPriceAfterEntry)
+                            {
+                                cached.HighestPriceAfterEntry = ticker.LastPrice;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "鎵归噺鏇存柊缂撳瓨鍚堢害浠锋牸澶辫触");
+                }
+            }
+        }
+        
+        
+        /// <summary>
+        /// 娓呯悊杩囨湡缂撳瓨锛岀Щ鍔ㄥ埌鍥炴敹鍖?
+        /// </summary>
+        public void CleanExpiredCache(
+            Dictionary<string, CachedHotspotContract> cachedContracts,
+            Dictionary<string, RecycledHotspotContract> recycledContracts)
+        {
+            var expiredSymbols = cachedContracts
+                .Where(kvp => kvp.Value.IsExpired)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            
+            foreach (var symbol in expiredSymbols)
+            {
+                var cached = cachedContracts[symbol];
+                
+                // 绉诲姩鍒板洖鏀跺尯
+                var recycled = new RecycledHotspotContract
+                {
+                    Symbol = cached.Symbol,
+                    LastPrice = cached.LastPrice,
+                    PriceChangePercent24h = cached.PriceChangePercent24h,
+                    QuoteVolume24h = cached.QuoteVolume24h,
+                    VolumeRatio = cached.VolumeRatio,
+                    HighPriceNDays = cached.HighPriceNDays,
+                    PriceChangeFromNDayHigh = cached.PriceChangeFromNDayHigh,
+                    CirculatingMarketCap = cached.CirculatingMarketCap,
+                    EntryTime = cached.EntryTime,
+                    EntryPrice = cached.EntryPrice,
+                    HighestPriceAfterEntry = cached.HighestPriceAfterEntry,
+                    ExpiryTime = cached.ExpiryTime,
+                    RecycleTime = DateTime.Now,
+                    RecycleExpiryTime = DateTime.Now.AddDays(3)
+                };
+                
+                recycledContracts[symbol] = recycled;
+                cachedContracts.Remove(symbol);
+                
+                _logger.LogInformation($"鍚堢害杩囨湡锛岀Щ鑷冲洖鏀跺尯: {symbol}");
+            }
+        }
+        
+        /// <summary>
+        /// 娓呯悊鍥炴敹鍖鸿繃鏈熸暟鎹?
+        /// </summary>
+        public void CleanRecycledContracts(Dictionary<string, RecycledHotspotContract> recycledContracts)
+        {
+            var toDelete = recycledContracts
+                .Where(kvp => kvp.Value.ShouldDelete)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            
+            foreach (var symbol in toDelete)
+            {
+                recycledContracts.Remove(symbol);
+                _logger.LogInformation($"浠庡洖鏀跺尯鍒犻櫎: {symbol}");
+            }
+        }
+        
+        /// <summary>
+        /// 淇濆瓨鏁版嵁鍒版湰鍦?
+        /// </summary>
+        public async Task SaveDataAsync(string instanceId, HotspotTrackingData data)
+        {
+            try
+            {
+                // 纭繚鐩綍瀛樺湪
+                if (!Directory.Exists(_dataDirectory))
+                {
+                    Directory.CreateDirectory(_dataDirectory);
+                    _logger.LogInformation($"鍒涘缓鏁版嵁鐩綍: {_dataDirectory}");
+                }
+                
+                var filePath = Path.Combine(_dataDirectory, $"hotspot_tracking_{instanceId}.json");
+                
+                data.LastSaveTime = DateTime.Now;
+                
+                // 鎵撳嵃淇濆瓨鍓嶇殑鏁版嵁蹇収锛堢敤浜庤皟璇曪級
+                if (data.CachedContracts.Count > 0)
+                {
+                    var firstContract = data.CachedContracts.First().Value;
+                    _logger.LogInformation($"馃搵 淇濆瓨鍓嶆暟鎹揩鐓?");
+                    _logger.LogInformation($"   绗竴涓悎绾? {firstContract.Symbol}");
+                    _logger.LogInformation($"   褰曞叆鏃堕棿: {firstContract.EntryTime:yyyy-MM-dd HH:mm:ss}");
+                    _logger.LogInformation($"   鍊掕鏃跺紑濮? {firstContract.CountdownStartTime:yyyy-MM-dd HH:mm:ss}");
+                    _logger.LogInformation($"   鍒版湡鏃堕棿: {firstContract.ExpiryTime:yyyy-MM-dd HH:mm:ss}");
+                }
+                
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    PropertyNameCaseInsensitive = true
+                };
+                
+                var json = JsonSerializer.Serialize(data, options);
+                await File.WriteAllTextAsync(filePath, json);
+                
+                _logger.LogInformation($"鉁?鐑偣杩借釜鏁版嵁宸蹭繚瀛? {filePath}");
+                _logger.LogInformation($"   缂撳瓨鍖哄悎绾? {data.CachedContracts.Count}涓?);
+                _logger.LogInformation($"   鍥炴敹鍖哄悎绾? {data.RecycledContracts.Count}涓?);
+                _logger.LogInformation($"   鏂囦欢澶у皬: {new FileInfo(filePath).Length / 1024.0:F2} KB");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"鉂?淇濆瓨鐑偣杩借釜鏁版嵁澶辫触: {instanceId}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// 浠庢湰鍦板姞杞芥暟鎹?
+        /// </summary>
+        public async Task<HotspotTrackingData?> LoadDataAsync(string instanceId)
+        {
+            try
+            {
+                var filePath = Path.Combine(_dataDirectory, $"hotspot_tracking_{instanceId}.json");
+                
+                if (!File.Exists(filePath))
+                {
+                    _logger.LogInformation($"馃搧 鏈壘鍒板巻鍙叉暟鎹枃浠? {filePath}");
+                    return null;
+                }
+                
+                var json = await File.ReadAllTextAsync(filePath);
+                
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                
+                var data = JsonSerializer.Deserialize<HotspotTrackingData>(json, options);
+                
+                if (data != null)
+                {
+                    _logger.LogInformation($"鉁?鍔犺浇鐑偣杩借釜鏁版嵁: {filePath}");
+                    _logger.LogInformation($"   缂撳瓨鍖哄悎绾? {data.CachedContracts.Count}涓?);
+                    _logger.LogInformation($"   鍥炴敹鍖哄悎绾? {data.RecycledContracts.Count}涓?);
+                    _logger.LogInformation($"   鏈€鍚庝繚瀛樻椂闂? {data.LastSaveTime:yyyy-MM-dd HH:mm:ss}");
+                    
+                    // 鎵撳嵃鍔犺浇鍚庣殑鏁版嵁蹇収锛堢敤浜庤皟璇曪級
+                    if (data.CachedContracts.Count > 0)
+                    {
+                        var firstContract = data.CachedContracts.First().Value;
+                        _logger.LogInformation($"馃搵 鍔犺浇鍚庢暟鎹揩鐓?");
+                        _logger.LogInformation($"   绗竴涓悎绾? {firstContract.Symbol}");
+                        _logger.LogInformation($"   褰曞叆鏃堕棿: {firstContract.EntryTime:yyyy-MM-dd HH:mm:ss}");
+                        _logger.LogInformation($"   鍊掕鏃跺紑濮? {firstContract.CountdownStartTime:yyyy-MM-dd HH:mm:ss}");
+                        _logger.LogInformation($"   鍒版湡鏃堕棿: {firstContract.ExpiryTime:yyyy-MM-dd HH:mm:ss}");
+                        _logger.LogInformation($"   鍓╀綑鏃堕棿: {firstContract.RemainingCacheHours:F1}灏忔椂");
+                    }
+                }
+                
+                return data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"鉂?鍔犺浇鐑偣杩借釜鏁版嵁澶辫触: {instanceId}");
+                return null;
+            }
+        }
+    }
+}
+
+
