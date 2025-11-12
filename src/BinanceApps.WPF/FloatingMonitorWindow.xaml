@@ -1,0 +1,251 @@
+<Window x:Class="BinanceApps.WPF.FloatingMonitorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BinanceApps.WPF"
+        Title="浮动监控" Height="750" Width="900"
+        Topmost="True" WindowStyle="ToolWindow"
+        ResizeMode="CanResize"
+        Background="#F5F5F5"
+        ShowInTaskbar="False">
+    
+    <Window.Resources>
+        <!-- 价格变化颜色转换器 -->
+        <local:PriceChangeColorConverter x:Key="PriceChangeColorConverter"/>
+        <!-- 行号转换器 -->
+        <local:RowNumberConverter x:Key="RowNumberConverter"/>
+    </Window.Resources>
+    
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部配置区域 -->
+        <Border Grid.Row="0" Background="White" CornerRadius="5" Padding="10" Margin="0,0,0,5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 第一行：启动/停止按钮 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                    <Button x:Name="btnStart" Content="▶ 启动监控" 
+                            Width="120" Height="32"
+                            Background="#28A745" Foreground="White"
+                            FontWeight="Bold"
+                            Click="BtnStart_Click"/>
+                    
+                    <Button x:Name="btnStop" Content="⏸ 停止监控" 
+                            Width="120" Height="32"
+                            Background="#DC3545" Foreground="White"
+                            FontWeight="Bold" Margin="10,0,0,0"
+                            IsEnabled="False"
+                            Click="BtnStop_Click"/>
+                    
+                    <TextBlock x:Name="txtStatus" Text="未启动" 
+                               VerticalAlignment="Center"
+                               Margin="15,0,0,0"
+                               FontWeight="SemiBold"
+                               Foreground="#666666"/>
+                </StackPanel>
+
+                <!-- 第二行：预警参数 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
+                    <TextBlock Text="多头预警范围:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtLongAlertRange" Width="50" Height="25" Text="10" 
+                             ToolTip="价格低于EMA×(1+X%)时预警"/>
+                    <TextBlock Text="%" VerticalAlignment="Center" Margin="5,0,15,0"/>
+                    
+                    <TextBlock Text="空头预警范围:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="txtShortAlertRange" Width="50" Height="25" Text="10"
+                             ToolTip="价格高于EMA×(1-X%)时预警"/>
+                    <TextBlock Text="%" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 操作按钮区域 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="5" Padding="5" Margin="0,0,0,5">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="btnAddMonitor" Content="➕ 添加监控" 
+                        Width="110" Height="32"
+                        Background="#007BFF" Foreground="White"
+                        FontWeight="SemiBold"
+                        Click="BtnAddMonitor_Click"/>
+                
+                <Button x:Name="btnRemoveMonitor" Content="➖ 删除选中" 
+                        Width="110" Height="32"
+                        Background="#6C757D" Foreground="White"
+                        FontWeight="SemiBold"
+                        Margin="10,0,0,0"
+                        Click="BtnRemoveMonitor_Click"/>
+                
+                <Button x:Name="btnTestWebhook" Content="🧪 测试推送" 
+                        Width="110" Height="32"
+                        Background="#17A2B8" Foreground="White"
+                        FontWeight="SemiBold"
+                        Margin="10,0,0,0"
+                        Click="BtnTestWebhook_Click"
+                        ToolTip="发送测试消息到企业微信"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 监控列表区域 -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="1.5*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 多头和空头监控（上半部分，左右布局） -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 多头监控 -->
+                <Border Grid.Column="0" Background="White" CornerRadius="5" Padding="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="🔺 多头监控列表" 
+                                   FontWeight="Bold" FontSize="14" 
+                                   Foreground="#28A745"
+                                   Margin="5,5,5,10"/>
+                        
+                        <DataGrid Grid.Row="1" x:Name="dgLongMonitors" 
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  AlternatingRowBackground="#F8F9FA"
+                                  SelectionMode="Extended"
+                                  MouseDoubleClick="DgLongMonitors_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="#" Width="35" IsReadOnly="True">
+                                    <DataGridTextColumn.Binding>
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}" 
+                                                 Converter="{StaticResource RowNumberConverter}"/>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="80"/>
+                                <DataGridTextColumn Header="选入价" Binding="{Binding PriceAtSelection, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="EMA" Binding="{Binding CurrentEma, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="距离(%)" Binding="{Binding DistancePercent, StringFormat=F2}" Width="70">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding DistancePercent, Converter={StaticResource PriceChangeColorConverter}}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                
+                <!-- 空头监控 -->
+                <Border Grid.Column="2" Background="White" CornerRadius="5" Padding="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="🔻 空头监控列表" 
+                                   FontWeight="Bold" FontSize="14" 
+                                   Foreground="#DC3545"
+                                   Margin="5,5,5,10"/>
+                        
+                        <DataGrid Grid.Row="1" x:Name="dgShortMonitors" 
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  AlternatingRowBackground="#F8F9FA"
+                                  SelectionMode="Extended"
+                                  MouseDoubleClick="DgShortMonitors_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="#" Width="35" IsReadOnly="True">
+                                    <DataGridTextColumn.Binding>
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}" 
+                                                 Converter="{StaticResource RowNumberConverter}"/>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="80"/>
+                                <DataGridTextColumn Header="选入价" Binding="{Binding PriceAtSelection, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="最新价" Binding="{Binding LastPrice, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="EMA" Binding="{Binding CurrentEma, StringFormat=F8}" Width="80"/>
+                                <DataGridTextColumn Header="距离(%)" Binding="{Binding DistancePercent, StringFormat=F2}" Width="70">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding DistancePercent, Converter={StaticResource PriceChangeColorConverter}}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+            
+            <!-- 预警列表（下半部分） -->
+            <Border Grid.Row="2" Background="White" CornerRadius="5" Padding="5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Grid.Row="0" Text="⚠️ 预警列表" 
+                               FontWeight="Bold" FontSize="14" 
+                               Foreground="#FF6B00"
+                               Margin="5,5,5,10"/>
+                    
+                    <DataGrid Grid.Row="1" x:Name="dgAlerts" 
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              AlternatingRowBackground="#FFF8E1"
+                              SelectionMode="Single"
+                              MouseDoubleClick="DgAlerts_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Width="35" IsReadOnly="True">
+                                <DataGridTextColumn.Binding>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=DataGridRow}" 
+                                             Converter="{StaticResource RowNumberConverter}"/>
+                                </DataGridTextColumn.Binding>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="60"/>
+                            <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="90"/>
+                            <DataGridTextColumn Header="预警价" Binding="{Binding AlertPrice, StringFormat=F8}" Width="90"/>
+                            <DataGridTextColumn Header="当前价" Binding="{Binding CurrentPrice, StringFormat=F8}" Width="90"/>
+                            <DataGridTextColumn Header="EMA" Binding="{Binding CurrentEma, StringFormat=F8}" Width="90"/>
+                            <DataGridTextColumn Header="预警时间" Binding="{Binding AlertTime, StringFormat=HH:mm:ss}" Width="90"/>
+                            <DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
+

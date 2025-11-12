@@ -244,6 +244,8 @@ namespace BinanceApps.WPF
             
             services.AddSingleton<BinanceApps.Core.Services.DashboardService>();
             services.AddSingleton<BinanceApps.Core.Services.MarketDistributionService>();
+            services.AddSingleton<BinanceApps.Core.Interfaces.IVolumeRatioService, BinanceApps.Core.Services.VolumeRatioService>();
+            services.AddSingleton<BinanceApps.Core.Interfaces.IHourlyEmaService, BinanceApps.Core.Services.HourlyEmaService>();
             
             return services.BuildServiceProvider();
         }
@@ -3474,6 +3476,144 @@ namespace BinanceApps.WPF
         #region 许可证相关方法
 
         /// <summary>
+        /// 直接从服务器获取许可证到期时间
+        /// </summary>
+        private async Task<DateTime?> GetLicenseExpiryFromServerAsync()
+        {
+            try
+            {
+                var licenseKey = LicenseKeyStorage.GetLicenseKey();
+                if (string.IsNullOrEmpty(licenseKey))
+                {
+                    return null;
+                }
+
+                var serverUrl = System.Configuration.ConfigurationManager.AppSettings["LicenseServerUrl"];
+                var appId = System.Configuration.ConfigurationManager.AppSettings["ApplicationId"];
+                var machineCode = LicenseManager.GetMachineCode();
+                
+                if (string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(appId))
+                {
+                    return null;
+                }
+                
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+                
+                // 尝试多种方式请求服务器
+                var formData = new Dictionary<string, string>
+                {
+                    { "application_id", appId },
+                    { "license_key", licenseKey },
+                    { "machine_code", machineCode }
+                };
+                
+                var formContent = new FormUrlEncodedContent(formData);
+                var response = await httpClient.PostAsync($"{serverUrl}/api/license/validate", formContent);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                
+                // 如果表单方式失败，尝试 JSON 方式
+                bool isSuccess = response.IsSuccessStatusCode && 
+                                !responseContent.Contains("参数不完整") && 
+                                !responseContent.Contains("\"status\":415") &&
+                                !responseContent.Contains("Unsupported Media Type");
+                
+                if (!isSuccess)
+                {
+                    var jsonData = new Dictionary<string, string>
+                    {
+                        { "application_id", appId },
+                        { "license_key", licenseKey },
+                        { "machine_code", machineCode }
+                    };
+                    
+                    var json = System.Text.Json.JsonSerializer.Serialize(jsonData);
+                    var jsonContent = new StringContent(json, Encoding.UTF8, "application/json");
+                    
+                    response = await httpClient.PostAsync($"{serverUrl}/api/license/validate", jsonContent);
+                    responseContent = await response.Content.ReadAsStringAsync();
+                    
+                    isSuccess = response.IsSuccessStatusCode && 
+                               !responseContent.Contains("参数不完整") && 
+                               !responseContent.Contains("\"success\":false");
+                }
+                
+                // 如果还是失败，尝试 PascalCase
+                if (!isSuccess)
+                {
+                    var jsonData = new
+                    {
+                        ApplicationId = appId,
+                        LicenseKey = licenseKey,
+                        MachineCode = machineCode
+                    };
+                    
+                    var json = System.Text.Json.JsonSerializer.Serialize(jsonData);
+                    var jsonContent = new StringContent(json, Encoding.UTF8, "application/json");
+                    
+                    response = await httpClient.PostAsync($"{serverUrl}/api/license/validate", jsonContent);
+                    responseContent = await response.Content.ReadAsStringAsync();
+                }
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonDoc = System.Text.Json.JsonDocument.Parse(responseContent);
+                    var root = jsonDoc.RootElement;
+                    
+                    // 检查 success 字段
+                    if (root.TryGetProperty("success", out var success) && success.GetBoolean())
+                    {
+                        // 尝试多种可能的字段名
+                        if (root.TryGetProperty("expires_at", out var expiresAt))
+                        {
+                            if (DateTime.TryParse(expiresAt.GetString(), out var expiry))
+                            {
+                                return expiry;
+                            }
+                        }
+                        else if (root.TryGetProperty("ExpiresAt", out var expiresAtPascal))
+                        {
+                            if (DateTime.TryParse(expiresAtPascal.GetString(), out var expiry))
+                            {
+                                return expiry;
+                            }
+                        }
+                        else if (root.TryGetProperty("expiry_date", out var expiryDate))
+                        {
+                            if (DateTime.TryParse(expiryDate.GetString(), out var expiry))
+                            {
+                                return expiry;
+                            }
+                        }
+                        else if (root.TryGetProperty("data", out var data) && data.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            if (data.TryGetProperty("expires_at", out var dataExpiresAt))
+                            {
+                                if (DateTime.TryParse(dataExpiresAt.GetString(), out var expiry))
+                                {
+                                    return expiry;
+                                }
+                            }
+                            else if (data.TryGetProperty("ExpiresAt", out var dataExpiresAtPascal))
+                            {
+                                if (DateTime.TryParse(dataExpiresAtPascal.GetString(), out var expiry))
+                                {
+                                    return expiry;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 静默失败，不输出详细日志
+            }
+            
+            return null;
+        }
+
+        /// <summary>
         /// 更新许可证状态显示
         /// </summary>
         private async Task UpdateLicenseStatusAsync()
@@ -3481,7 +3621,6 @@ namespace BinanceApps.WPF
             try
             {
                 var result = await LicenseManager.ValidateCurrentLicenseAsync();
-                Console.WriteLine($"🔍 MainWindow许可证状态检查: IsValid={result.IsValid}, Message={result.Message}");
                 
                 // 使用与验证界面相同的判断逻辑
                 if (result.IsValid || result.Message.Contains("验证成功"))
@@ -3498,9 +3637,42 @@ namespace BinanceApps.WPF
                     StatusBarLicense.Foreground = Brushes.Green;
                     
                     // 处理到期时间显示
-                    if (result.ExpiresAt.HasValue && result.ExpiresAt != default(DateTime))
+                    DateTime? expiryDate = result.ExpiresAt;
+                    
+                    // 如果SDK没有返回有效的到期时间，尝试多种方式获取
+                    if (!expiryDate.HasValue || expiryDate == default(DateTime))
                     {
-                        var daysLeft = (result.ExpiresAt.Value - DateTime.Now).Days;
+                        // 方式1: 尝试直接从服务器获取
+                        expiryDate = await GetLicenseExpiryFromServerAsync();
+                        
+                        // 方式2: 如果服务器也无法返回，从本地缓存读取
+                        if (!expiryDate.HasValue || expiryDate == default(DateTime))
+                        {
+                            var cachedInfo = LicenseKeyStorage.GetLicenseInfo();
+                            if (cachedInfo.ExpiresAt.HasValue)
+                            {
+                                expiryDate = cachedInfo.ExpiresAt;
+                                if (!string.IsNullOrEmpty(cachedInfo.LicenseType))
+                                {
+                                    licenseTypeDisplay = cachedInfo.LicenseType;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // 如果成功从服务器获取，缓存到本地
+                            LicenseKeyStorage.SaveLicenseInfo(expiryDate, licenseTypeDisplay);
+                        }
+                    }
+                    else
+                    {
+                        // SDK返回了有效数据，缓存到本地
+                        LicenseKeyStorage.SaveLicenseInfo(expiryDate, licenseTypeDisplay);
+                    }
+                    
+                    if (expiryDate.HasValue && expiryDate != default(DateTime))
+                    {
+                        var daysLeft = (expiryDate.Value - DateTime.Now).Days;
                         StatusBarExpiry.Text = $"剩余{daysLeft}天";
                         
                         // 临近过期提醒
@@ -3515,7 +3687,7 @@ namespace BinanceApps.WPF
                     }
                     else
                     {
-                        // 基于服务器日志的默认值（364天）
+                        // 无法获取到期时间，使用默认值
                         StatusBarExpiry.Text = "剩余364天";
                         StatusBarExpiry.Foreground = Brushes.Green;
                     }
@@ -3539,6 +3711,31 @@ namespace BinanceApps.WPF
                 StatusBarLicense.Text = "许可证状态未知";
                 StatusBarLicense.Foreground = Brushes.Red;
                 Console.WriteLine($"许可证状态更新失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 手动设置许可证到期时间（用于服务器无法返回时的临时解决方案）
+        /// </summary>
+        public void SetLicenseExpiryManually(DateTime? expiryDate = null, string? licenseType = null)
+        {
+            try
+            {
+                // 如果没有提供参数，使用默认值
+                var expiry = expiryDate ?? DateTime.Now.AddYears(1);
+                var type = licenseType ?? "年度许可";
+                
+                LicenseKeyStorage.SetExpiryManually(expiry, type);
+                
+                // 刷新许可证状态显示
+                Dispatcher.InvokeAsync(async () => 
+                {
+                    await UpdateLicenseStatusAsync();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 手动设置许可证信息失败: {ex.Message}");
             }
         }
 
@@ -3699,15 +3896,25 @@ namespace BinanceApps.WPF
                         statusInfo += "类型：年度许可\n"; // 基于之前的服务器日志
                     }
                     
-                    if (currentStatus.ExpiresAt.HasValue && currentStatus.ExpiresAt != default(DateTime))
+                    // 获取到期时间
+                    DateTime? expiryDate = currentStatus.ExpiresAt;
+                    
+                    // 如果SDK没有返回有效的到期时间，尝试直接从服务器获取
+                    if (!expiryDate.HasValue || expiryDate == default(DateTime))
                     {
-                        var daysLeft = (currentStatus.ExpiresAt.Value - DateTime.Now).Days;
+                        Console.WriteLine("⚠️ SDK未返回有效的到期时间，尝试直接从服务器获取...");
+                        expiryDate = await GetLicenseExpiryFromServerAsync();
+                    }
+                    
+                    if (expiryDate.HasValue && expiryDate != default(DateTime))
+                    {
+                        var daysLeft = (expiryDate.Value - DateTime.Now).Days;
                         statusInfo += $"剩余：{daysLeft} 天\n";
-                        statusInfo += $"到期：{currentStatus.ExpiresAt.Value:yyyy-MM-dd}";
+                        statusInfo += $"到期：{expiryDate.Value:yyyy-MM-dd}";
                     }
                     else
                     {
-                        // 基于服务器日志显示364天
+                        // 无法获取到期时间
                         statusInfo += "剩余：364 天\n";
                         var futureDate = DateTime.Now.AddDays(364);
                         statusInfo += $"到期：{futureDate:yyyy-MM-dd}";
@@ -3754,7 +3961,6 @@ namespace BinanceApps.WPF
                     config.Save(System.Configuration.ConfigurationSaveMode.Modified);
                     System.Configuration.ConfigurationManager.RefreshSection("appSettings");
                     
-                    Console.WriteLine($"🔐 验证注册码: {licenseKey}");
                     var validationResult = await LicenseManager.ValidateCurrentLicenseAsync();
                     
                     if (validationResult.IsValid || validationResult.Message.Contains("验证成功"))
@@ -3771,11 +3977,21 @@ namespace BinanceApps.WPF
                             statusInfo += "类型：年度许可\n";
                         }
                         
-                        if (validationResult.ExpiresAt.HasValue && validationResult.ExpiresAt != default(DateTime))
+                        // 获取到期时间
+                        DateTime? expiryDate = validationResult.ExpiresAt;
+                        
+                        // 如果SDK没有返回有效的到期时间，尝试直接从服务器获取
+                        if (!expiryDate.HasValue || expiryDate == default(DateTime))
                         {
-                            var daysLeft = (validationResult.ExpiresAt.Value - DateTime.Now).Days;
+                            Console.WriteLine("⚠️ SDK未返回有效的到期时间，尝试直接从服务器获取...");
+                            expiryDate = await GetLicenseExpiryFromServerAsync();
+                        }
+                        
+                        if (expiryDate.HasValue && expiryDate != default(DateTime))
+                        {
+                            var daysLeft = (expiryDate.Value - DateTime.Now).Days;
                             statusInfo += $"剩余：{daysLeft} 天\n";
-                            statusInfo += $"到期：{validationResult.ExpiresAt.Value:yyyy-MM-dd}";
+                            statusInfo += $"到期：{expiryDate.Value:yyyy-MM-dd}";
                         }
                         else
                         {
@@ -3889,15 +4105,24 @@ namespace BinanceApps.WPF
                     }
                     
                     // 处理到期时间显示
-                    if (result.ExpiresAt.HasValue && result.ExpiresAt != default(DateTime))
+                    DateTime? expiryDate = result.ExpiresAt;
+                    
+                    // 如果SDK没有返回有效的到期时间，尝试直接从服务器获取
+                    if (!expiryDate.HasValue || expiryDate == default(DateTime))
                     {
-                        var daysLeft = (result.ExpiresAt.Value - DateTime.Now).Days;
-                        aboutText += $"到期时间: {result.ExpiresAt.Value:yyyy-MM-dd}\n";
+                        Console.WriteLine("⚠️ SDK未返回有效的到期时间，尝试直接从服务器获取...");
+                        expiryDate = await GetLicenseExpiryFromServerAsync();
+                    }
+                    
+                    if (expiryDate.HasValue && expiryDate != default(DateTime))
+                    {
+                        var daysLeft = (expiryDate.Value - DateTime.Now).Days;
+                        aboutText += $"到期时间: {expiryDate.Value:yyyy-MM-dd}\n";
                         aboutText += $"剩余天数: {daysLeft} 天\n";
                     }
                     else
                     {
-                        // 基于服务器日志的默认值（364天）
+                        // 无法获取到期时间
                         var futureDate = DateTime.Now.AddDays(364);
                         aboutText += $"到期时间: {futureDate:yyyy-MM-dd}\n";
                         aboutText += $"剩余天数: 364 天\n";
@@ -4055,6 +4280,81 @@ namespace BinanceApps.WPF
                 _logWindow?.AddLog($"打开市场每日涨幅分布窗口失败: {ex.Message}", LogType.Error);
                 MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        /// <summary>
+        /// 量比异动选股按钮点击事件
+        /// </summary>
+        private void BtnVolumeRatio_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 创建并显示量比异动选股窗口
+                var window = new VolumeRatioWindow(_serviceProvider)
+                {
+                    Owner = this
+                };
+                
+                window.Show();
+                _logWindow?.AddLog("已打开量比异动选股窗口", LogType.Info);
+                Console.WriteLine("✅ 量比异动选股窗口已打开");
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开量比异动选股窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"❌ 打开量比异动选股窗口失败: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 小时均线监控按钮点击事件
+        /// </summary>
+        private void BtnHourlyEmaMonitor_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 创建并显示小时均线监控窗口
+                var window = new HourlyEmaMonitorWindow(_serviceProvider)
+                {
+                    Owner = this
+                };
+                
+                window.Show();
+                _logWindow?.AddLog("已打开小时均线监控窗口", LogType.Info);
+                Console.WriteLine("✅ 小时均线监控窗口已打开");
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开小时均线监控窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"❌ 打开小时均线监控窗口失败: {ex.Message}");
+            }
+        }
+
+        private void BtnMultiTaskMonitor_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 创建并显示多任务监控窗口
+                var window = new MultiTaskMonitorWindow(_serviceProvider)
+                {
+                    Owner = this
+                };
+                
+                window.Show();
+                _logWindow?.AddLog("已打开多任务监控窗口", LogType.Info);
+                Console.WriteLine("✅ 多任务监控窗口已打开");
+            }
+            catch (Exception ex)
+            {
+                _logWindow?.AddLog($"打开多任务监控窗口失败: {ex.Message}", LogType.Error);
+                MessageBox.Show($"打开窗口失败: {ex.Message}", "错误", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"❌ 打开多任务监控窗口失败: {ex.Message}");
             }
         }
         
@@ -6735,12 +7035,12 @@ namespace BinanceApps.WPF
             try
             {
                 // 获取所有永续合约的24H行情数据
-                Console.WriteLine("📊 正在获取ticker数据...");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📊 正在获取ticker数据...");
                 var tickerData = await Get24HTickerDataAsync();
                 
                 if (tickerData == null || tickerData.Count == 0)
                 {
-                    Console.WriteLine("⚠️ 未获取到ticker数据");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ⚠️ 未获取到ticker数据");
                     var noDataPanel = new StackPanel 
                     { 
                         HorizontalAlignment = HorizontalAlignment.Center,
@@ -6759,10 +7059,10 @@ namespace BinanceApps.WPF
                     return;
                 }
                 
-                Console.WriteLine($"📈 获取到 {tickerData.Count} 个可交易合约的24H数据");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📈 获取到 {tickerData.Count} 个可交易合约的24H数据");
                 
                 // 获取前一天的K线数据进行成交额对比
-                Console.WriteLine("📊 正在加载前一天K线数据...");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📊 正在加载前一天K线数据...");
                 var yesterdayData = await GetYesterdayVolumeDataAsync(tickerData);
                 
                 // 创建24H行情显示面板
@@ -6788,14 +7088,14 @@ namespace BinanceApps.WPF
         {
             try
             {
-                Console.WriteLine("🔄 开始调用API获取ticker数据...");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🔄 开始调用API获取ticker数据...");
                 
                 // 1. 获取所有可交易的合约信息
-                Console.WriteLine("📋 正在获取可交易合约列表...");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📋 正在获取可交易合约列表...");
                 var allSymbols = await _apiClient.GetAllSymbolsInfoAsync();
                 if (allSymbols == null || allSymbols.Count == 0)
                 {
-                    Console.WriteLine("⚠️ 未获取到合约信息，将不进行交易状态过滤");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ⚠️ 未获取到合约信息，将不进行交易状态过滤");
                 }
                 
                 // 创建可交易永续合约的集合，提高查找效率
@@ -6806,22 +7106,22 @@ namespace BinanceApps.WPF
                         .Where(s => s.IsTrading && s.QuoteAsset == "USDT" && s.ContractType == ContractType.Perpetual)
                         .Select(s => s.Symbol)
                         .ToHashSet();
-                    Console.WriteLine($"📈 找到 {tradingSymbols.Count} 个可交易的USDT永续合约");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📈 找到 {tradingSymbols.Count} 个可交易的USDT永续合约");
                 }
                 
                 // 2. 获取所有tick数据
                 var allTicks = await _apiClient.GetAllTicksAsync();
                 if (allTicks == null || allTicks.Count == 0)
                 {
-                    Console.WriteLine("⚠️ GetAllTicksAsync返回空数据");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ⚠️ GetAllTicksAsync返回空数据");
                     return new List<Market24HData>();
                 }
                 
-                Console.WriteLine($"📊 API返回 {allTicks.Count} 个tick数据");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📊 API返回 {allTicks.Count} 个tick数据");
                 
                 // 3. 筛选USDT合约
                 var usdtTicks = allTicks.Where(t => t.Symbol.EndsWith("USDT")).ToList();
-                Console.WriteLine($"📈 筛选出 {usdtTicks.Count} 个USDT合约");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📈 筛选出 {usdtTicks.Count} 个USDT合约");
                 
                 // 4. 过滤掉不可交易的或非永续合约
                 if (tradingSymbols.Count > 0)
@@ -6829,7 +7129,7 @@ namespace BinanceApps.WPF
                     var originalCount = usdtTicks.Count;
                     usdtTicks = usdtTicks.Where(t => tradingSymbols.Contains(t.Symbol)).ToList();
                     var filteredCount = originalCount - usdtTicks.Count;
-                    Console.WriteLine($"🚫 过滤掉 {filteredCount} 个不可交易或非永续合约，剩余 {usdtTicks.Count} 个");
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🚫 过滤掉 {filteredCount} 个不可交易或非永续合约，剩余 {usdtTicks.Count} 个");
                 }
                 
                 // 5. 转换为24H行情数据格式
@@ -6855,12 +7155,12 @@ namespace BinanceApps.WPF
                     result.Add(marketData);
                 }
                 
-                Console.WriteLine($"✅ 成功转换 {result.Count} 个可交易合约的24H数据");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ✅ 成功转换 {result.Count} 个可交易合约的24H数据");
                 return result.OrderByDescending(x => x.QuoteVolume).ToList(); // 按成交额排序
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 获取ticker数据失败: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ❌ 获取ticker数据失败: {ex.Message}");
                 throw;
             }
         }

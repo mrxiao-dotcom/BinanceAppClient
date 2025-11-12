@@ -1,0 +1,120 @@
+<Window x:Class="BinanceApps.WPF.KlineChartWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        Title="K线与EMA数据图表" Height="600" Width="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题区域 -->
+        <Border Grid.Row="0" Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0">
+                    <TextBlock x:Name="txtTitle" 
+                               Text="合约名称" 
+                               FontSize="20" 
+                               FontWeight="Bold" 
+                               Foreground="#333333"/>
+                    <TextBlock x:Name="txtInfo" 
+                               Text="数据信息" 
+                               FontSize="12" 
+                               Foreground="#666666" 
+                               Margin="0,5,0,0"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Border Background="#007ACC" CornerRadius="4" Padding="8,4" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="●" Foreground="#4CAF50" FontSize="16" Margin="0,0,5,0"/>
+                            <TextBlock Text="K线Close" Foreground="White" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#FF9800" CornerRadius="4" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="●" Foreground="#FF5722" FontSize="16" Margin="0,0,5,0"/>
+                            <TextBlock Text="EMA" Foreground="White" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 图表区域 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 主图：K线和EMA -->
+                <lvc:CartesianChart Grid.Row="0" x:Name="chart" 
+                                    Series="{Binding Series}"
+                                    XAxes="{Binding XAxes}"
+                                    YAxes="{Binding YAxes}"
+                                    LegendPosition="Hidden"
+                                    TooltipPosition="Top"
+                                    Margin="0,0,0,5"/>
+                
+                <!-- 副图：成交额 -->
+                <lvc:CartesianChart Grid.Row="1" x:Name="volumeChart"
+                                    Series="{Binding VolumeSeries}"
+                                    XAxes="{Binding VolumeXAxes}"
+                                    YAxes="{Binding VolumeYAxes}"
+                                    LegendPosition="Hidden"
+                                    TooltipPosition="Top"
+                                    Margin="0,5,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- 统计信息区域 -->
+        <Border Grid.Row="2" Background="White" CornerRadius="8" Padding="15" Margin="0,10,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="K线数量" FontSize="11" Foreground="#666666"/>
+                    <TextBlock x:Name="txtKlineCount" Text="0" FontSize="16" FontWeight="Bold" Foreground="#333333" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="最新收盘价" FontSize="11" Foreground="#666666"/>
+                    <TextBlock x:Name="txtLastClose" Text="0.00" FontSize="16" FontWeight="Bold" Foreground="#333333" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="当前EMA" FontSize="11" Foreground="#666666"/>
+                    <TextBlock x:Name="txtCurrentEma" Text="0.00" FontSize="16" FontWeight="Bold" Foreground="#333333" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="距离EMA" FontSize="11" Foreground="#666666"/>
+                    <TextBlock x:Name="txtDistance" Text="0.00%" FontSize="16" FontWeight="Bold" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="连续数量" FontSize="11" Foreground="#666666"/>
+                    <TextBlock x:Name="txtContinuous" Text="0" FontSize="16" FontWeight="Bold" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+

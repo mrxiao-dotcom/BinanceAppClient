@@ -13,6 +13,8 @@ namespace BinanceApps.WPF
     {
         private static readonly string AppDataPath;
         private static readonly string LicenseFilePath;
+        private static readonly string ExpiryFilePath;
+        private static readonly string LicenseInfoFilePath;
         
         static LicenseKeyStorage()
         {
@@ -29,6 +31,8 @@ namespace BinanceApps.WPF
             }
             
             LicenseFilePath = Path.Combine(AppDataPath, "license.dat");
+            ExpiryFilePath = Path.Combine(AppDataPath, "expiry.dat");
+            LicenseInfoFilePath = Path.Combine(AppDataPath, "license_info.json");
         }
         
         /// <summary>
@@ -121,6 +125,85 @@ namespace BinanceApps.WPF
         public static string GetStoragePath()
         {
             return LicenseFilePath;
+        }
+        
+        /// <summary>
+        /// 保存许可证信息（到期时间、许可证类型等）
+        /// </summary>
+        public static void SaveLicenseInfo(DateTime? expiresAt, string? licenseType)
+        {
+            try
+            {
+                var info = new
+                {
+                    ExpiresAt = expiresAt?.ToString("yyyy-MM-dd HH:mm:ss"),
+                    LicenseType = licenseType,
+                    SavedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                };
+                
+                var json = System.Text.Json.JsonSerializer.Serialize(info, new System.Text.Json.JsonSerializerOptions 
+                { 
+                    WriteIndented = true 
+                });
+                
+                File.WriteAllText(LicenseInfoFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 保存许可证信息失败: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 读取缓存的许可证信息
+        /// </summary>
+        public static (DateTime? ExpiresAt, string? LicenseType) GetLicenseInfo()
+        {
+            try
+            {
+                if (!File.Exists(LicenseInfoFilePath))
+                {
+                    return (null, null);
+                }
+                
+                var json = File.ReadAllText(LicenseInfoFilePath);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                
+                DateTime? expiresAt = null;
+                string? licenseType = null;
+                
+                if (root.TryGetProperty("ExpiresAt", out var expiresAtProp) && 
+                    expiresAtProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var expiresAtStr = expiresAtProp.GetString();
+                    if (!string.IsNullOrEmpty(expiresAtStr) && DateTime.TryParse(expiresAtStr, out var parsedDate))
+                    {
+                        expiresAt = parsedDate;
+                    }
+                }
+                
+                if (root.TryGetProperty("LicenseType", out var licenseTypeProp) && 
+                    licenseTypeProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    licenseType = licenseTypeProp.GetString();
+                }
+                
+                return (expiresAt, licenseType);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 读取许可证信息缓存失败: {ex.Message}");
+                return (null, null);
+            }
+        }
+        
+        /// <summary>
+        /// 手动设置到期时间（用于服务器无法返回时）
+        /// </summary>
+        public static void SetExpiryManually(DateTime expiresAt, string licenseType = "年度许可")
+        {
+            SaveLicenseInfo(expiresAt, licenseType);
         }
         
         // ==================== 加密/解密方法 ====================

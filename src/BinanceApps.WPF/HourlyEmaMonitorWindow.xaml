@@ -1,0 +1,327 @@
+<Window x:Class="BinanceApps.WPF.HourlyEmaMonitorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BinanceApps.WPF"
+        Title="小时均线监控" Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+    
+    <Window.Resources>
+        <local:PriceChangeColorConverter x:Key="PriceChangeColorConverter"/>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 控制区域 -->
+        <Border Grid.Row="0" Background="White" CornerRadius="8" Padding="20" Margin="10,10,10,5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 标题 -->
+                <TextBlock Grid.Row="0" Text="小时均线监控" 
+                           FontSize="24" FontWeight="Bold" 
+                           Foreground="#333333" Margin="0,0,0,20"/>
+                
+                <!-- 控制面板 -->
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- 第一行：主要按钮 -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- 左侧：按钮区域 -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Button x:Name="btnFetchKlines" Content="📥 获取小时K线" 
+                                    Width="160" Height="40" 
+                                    Background="#007ACC" Foreground="White"
+                                    FontSize="15" FontWeight="Bold"
+                                    Click="BtnFetchKlines_Click" Margin="0,0,10,0"/>
+                            
+                            <Button x:Name="btnUpdateKlines" Content="🔄 更新K线" 
+                                    Width="120" Height="40" 
+                                    Background="#17A2B8" Foreground="White"
+                                    FontSize="15" FontWeight="Bold"
+                                    Click="BtnUpdateKlines_Click" Margin="0,0,10,0"
+                                    IsEnabled="False"/>
+                            
+                            <Button x:Name="btnCalculate" Content="🔢 计算" 
+                                    Width="100" Height="40" 
+                                    Background="#FFC107" Foreground="White"
+                                    FontSize="15" FontWeight="Bold"
+                                    Click="BtnCalculate_Click" Margin="0,0,10,0"
+                                    IsEnabled="False"/>
+                            
+                            <Button x:Name="btnOpenFloatingMonitor" Content="🎯 打开浮窗" 
+                                    Width="120" Height="40" 
+                                    Background="#6F42C1" Foreground="White"
+                                    FontSize="15" FontWeight="Bold"
+                                    Click="BtnOpenFloatingMonitor_Click" Margin="0,0,10,0"
+                                    IsEnabled="True"/>
+                            
+                            <Button x:Name="btnClearCache" Content="🗑️ 清除缓存" 
+                                    Width="120" Height="40" 
+                                    Background="#6C757D" Foreground="White"
+                                    FontSize="15" FontWeight="Bold"
+                                    Click="BtnClearCache_Click" Margin="0,0,10,0"/>
+                        </StackPanel>
+                        
+                        <!-- 右侧：参数区域 -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <StackPanel Margin="0,0,15,0">
+                                <TextBlock Text="N天均线" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBox x:Name="txtEmaPeriod" Text="26" Width="80" 
+                                         Height="30" FontSize="14"
+                                         ToolTip="计算过去N个K线的EMA均值"/>
+                            </StackPanel>
+                            
+                            <StackPanel>
+                                <TextBlock Text="X根K线" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBox x:Name="txtKlineCount" Text="100" Width="80" 
+                                         Height="30" FontSize="14"
+                                         ToolTip="获取最近X根1小时K线"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- 第二行：筛选条件 -->
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 第一排筛选条件 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                            <TextBlock Text="筛选条件：" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            
+                            <TextBlock Text="大于EMA数量 ≥" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBox x:Name="txtMinAboveEma" Width="60" Height="30" 
+                                     ToolTip="筛选大于EMA数量大于等于此值的合约"/>
+                            
+                            <TextBlock Text="小于EMA数量 ≥" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMinBelowEma" Width="60" Height="30" 
+                                     ToolTip="筛选小于EMA数量大于等于此值的合约"/>
+                            
+                            <TextBlock Text="成交额(USDT) ≥" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMinQuoteVolume" Width="100" Height="30" 
+                                     ToolTip="筛选24H成交额大于等于此值的合约（单位：USDT）"/>
+                            
+                            <TextBlock Text="量比(%) ≥" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMinVolumeRatio" Width="60" Height="30" 
+                                     ToolTip="筛选量比大于等于此值的合约（单位：%）"/>
+                            
+                            <TextBlock Text="流通率(%) ≤" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMaxCirculationRate" Width="60" Height="30" 
+                                     ToolTip="筛选流通率小于等于此值的合约（单位：%）"/>
+                            
+                            <TextBlock Text="流通市值 ≤" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMaxCirculatingMarketCap" Width="100" Height="30" 
+                                     ToolTip="筛选流通市值小于等于此值的合约（单位：USDT）"/>
+                            
+                            <TextBlock Text="发行市值 ≤" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                            <TextBox x:Name="txtMaxTotalMarketCap" Width="100" Height="30" 
+                                     ToolTip="筛选发行市值小于等于此值的合约（单位：USDT）"/>
+                        </StackPanel>
+                        
+                        <!-- 第二排操作按钮 -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button x:Name="btnFilter" Content="🔍 筛选" 
+                                    Width="100" Height="30" 
+                                    Background="#007ACC" Foreground="White"
+                                    FontWeight="Bold"
+                                    Click="BtnFilter_Click"/>
+                            
+                            <Button x:Name="btnClearFilter" Content="清除筛选" 
+                                    Width="100" Height="30" 
+                                    Background="#6C757D" Foreground="White"
+                                    FontWeight="Bold" Margin="10,0,0,0"
+                                    Click="BtnClearFilter_Click"/>
+                            
+                            <CheckBox x:Name="chkApplyFilterToMonitor" 
+                                      Content="监控时自动应用筛选" 
+                                      VerticalAlignment="Center" 
+                                      Margin="20,0,0,0"
+                                      FontWeight="SemiBold"
+                                      ToolTip="启动监控时自动应用当前筛选条件，只显示符合条件的合约"/>
+                            
+                            <!-- 统计信息显示 -->
+                            <Border BorderBrush="#28A745" BorderThickness="1" CornerRadius="3" 
+                                    Padding="8,5" Margin="30,0,0,0" Background="#F0FFF4">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📊 统计：" FontWeight="Bold" 
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="均线以上：" VerticalAlignment="Center" 
+                                               Foreground="#28A745" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="txtAboveEmaCount" Text="0" 
+                                               VerticalAlignment="Center" Margin="3,0,15,0"
+                                               Foreground="#28A745" FontWeight="Bold" FontSize="14"/>
+                                    <TextBlock Text="均线以下：" VerticalAlignment="Center" 
+                                               Foreground="#DC3545" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="txtBelowEmaCount" Text="0" 
+                                               VerticalAlignment="Center" Margin="3,0,0,0"
+                                               Foreground="#DC3545" FontWeight="Bold" FontSize="14"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+        
+        <!-- 数据展示区域 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="10" Margin="10,5,10,5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 结果标题和提示 -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock x:Name="txtResultTitle" 
+                               Text="监控结果" FontSize="18" FontWeight="Bold" 
+                               Foreground="#333333" VerticalAlignment="Center"
+                               HorizontalAlignment="Left"/>
+                    <TextBlock Text="💡 双击：复制合约名 | Ctrl+双击：查看K线图表" 
+                               FontSize="11" 
+                               Foreground="#999999" 
+                               HorizontalAlignment="Right" 
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,0,2"/>
+                </Grid>
+                
+                <!-- 数据表格 -->
+                <DataGrid Grid.Row="1" x:Name="dgResults" 
+                          AutoGenerateColumns="False" 
+                          CanUserAddRows="False" 
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          AlternatingRowBackground="#F8F9FA"
+                          RowHeaderWidth="0"
+                          SelectionMode="Single"
+                          MouseDoubleClick="DgResults_MouseDoubleClick">
+                    
+                    <!-- 右键菜单 -->
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="📈 加入多头监控" Click="MenuItem_AddToLongMonitor_Click"/>
+                            <MenuItem Header="📉 加入空头监控" Click="MenuItem_AddToShortMonitor_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                    
+                    <DataGrid.Columns>
+                        <!-- 合约名 -->
+                        <DataGridTextColumn Header="合约名" Binding="{Binding Symbol}" 
+                                            Width="120" FontWeight="Bold"/>
+                        
+                        <!-- 最新价格 -->
+                        <DataGridTextColumn Header="最新价格" Binding="{Binding LastPrice, StringFormat=F8}" 
+                                            Width="120"/>
+                        
+                        <!-- 当前EMA -->
+                        <DataGridTextColumn Header="当前EMA" Binding="{Binding CurrentEma, StringFormat=F8}" 
+                                            Width="120"/>
+                        
+                        <!-- 距离EMA -->
+                        <DataGridTextColumn Header="距离EMA(%)" Binding="{Binding DistancePercent, StringFormat=F2}" 
+                                            Width="100" SortDirection="Ascending">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{Binding DistancePercent, Converter={StaticResource PriceChangeColorConverter}}"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <!-- 大于EMA数量 -->
+                        <DataGridTextColumn Header="大于EMA数量" Binding="{Binding AboveEmaCount}" 
+                                            Width="110" FontWeight="Bold"/>
+                        
+                        <!-- 小于EMA数量 -->
+                        <DataGridTextColumn Header="小于EMA数量" Binding="{Binding BelowEmaCount}" 
+                                            Width="110" FontWeight="Bold"/>
+                        
+                        <!-- 24H涨幅 -->
+                        <DataGridTextColumn Header="24H涨幅(%)" Binding="{Binding PriceChangePercent, StringFormat=F2}" 
+                                            Width="100">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{Binding PriceChangePercent, Converter={StaticResource PriceChangeColorConverter}}"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <!-- K线数量 -->
+                        <DataGridTextColumn Header="K线数量" Binding="{Binding KlineCount}" 
+                                            Width="80"/>
+                        
+                        <!-- 24H成交额 -->
+                        <DataGridTextColumn Header="24H成交额(USDT)" Binding="{Binding QuoteVolumeText}" 
+                                            Width="150"/>
+                        
+                        <!-- 流通量 -->
+                        <DataGridTextColumn Header="流通量" Binding="{Binding CirculatingSupply, StringFormat=N0}" 
+                                            Width="120"/>
+                        
+                        <!-- 发行总量 -->
+                        <DataGridTextColumn Header="发行总量" Binding="{Binding TotalSupply, StringFormat=N0}" 
+                                            Width="120"/>
+                        
+                        <!-- 流通率 -->
+                        <DataGridTextColumn Header="流通率(%)" Binding="{Binding CirculationRate, StringFormat=F2}" 
+                                            Width="90"/>
+                        
+                        <!-- 量比(%) -->
+                        <DataGridTextColumn Header="量比(%)" Binding="{Binding VolumeRatio, StringFormat=F2}" 
+                                            Width="80"/>
+                        
+                        <!-- 流通市值 -->
+                        <DataGridTextColumn Header="流通市值(USDT)" Binding="{Binding CirculatingMarketCap, StringFormat=N0}" 
+                                            Width="150"/>
+                        
+                        <!-- 发行市值 -->
+                        <DataGridTextColumn Header="发行市值(USDT)" Binding="{Binding TotalMarketCap, StringFormat=N0}" 
+                                            Width="150"/>
+                        
+                        <!-- 合约简介 -->
+                        <DataGridTextColumn Header="合约简介" Binding="{Binding Description}" 
+                                            Width="200"/>
+                        
+                        <!-- 更新时间 -->
+                        <DataGridTextColumn Header="更新时间" Binding="{Binding UpdateTime, StringFormat=HH:mm:ss}" 
+                                            Width="100"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+        
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Background="#F8F9FA" Height="30">
+            <StatusBarItem>
+                <TextBlock x:Name="txtStatus" Text="就绪" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="txtProgress" Text="" FontSize="10" Foreground="Gray"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
+

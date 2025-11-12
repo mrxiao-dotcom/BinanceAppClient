@@ -20,6 +20,7 @@ namespace BinanceApps.Core.Services
         private readonly string _dataFilePath;
         private readonly Dictionary<string, ContractSupplyData> _supplyCache;
         private DateTime _lastCacheUpdate;
+        private readonly string _apiBaseUrl = "http://38.181.35.75:8080";
 
         public SupplyDataService(HttpClient httpClient, ILogger<SupplyDataService>? logger = null)
         {
@@ -34,19 +35,92 @@ namespace BinanceApps.Core.Services
         }
 
         /// <summary>
-        /// 初始化服务，加载本地数据到缓存
+        /// 初始化服务，从API获取数据到缓存
         /// </summary>
         public async Task InitializeAsync()
         {
             try
             {
-                await LoadSupplyDataFromFileAsync();
+                Console.WriteLine("🔄 正在从API服务器获取合约流通量数据...");
+                Console.WriteLine($"🌐 API服务器地址: {_apiBaseUrl}");
+                await LoadSupplyDataFromApiAsync();
+                Console.WriteLine($"✅ 发行量数据服务初始化完成，缓存了 {_supplyCache.Count} 个合约的数据");
                 _logger?.LogInformation($"✅ 发行量数据服务初始化完成，缓存了 {_supplyCache.Count} 个合约的数据");
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "❌ 发行量数据服务初始化失败");
                 Console.WriteLine($"⚠️ 发行量数据服务初始化失败: {ex.Message}");
+                Console.WriteLine($"🔍 详细错误信息: {ex}");
+                Console.WriteLine("🔄 尝试加载本地缓存数据...");
+                await LoadSupplyDataFromFileAsync();
+            }
+        }
+
+        /// <summary>
+        /// 从API获取发行量数据到缓存
+        /// </summary>
+        private async Task LoadSupplyDataFromApiAsync()
+        {
+            try
+            {
+                Console.WriteLine($"🌐 正在调用API: {_apiBaseUrl}/api/contract");
+                var response = await _httpClient.GetAsync($"{_apiBaseUrl}/api/contract");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    var apiResponse = JsonSerializer.Deserialize<ApiResponse<List<ContractApiData>>>(jsonContent);
+                    
+                    if (apiResponse?.Success == true && apiResponse.Data != null)
+                    {
+                        _supplyCache.Clear();
+                        var loadedCount = 0;
+                        
+                        foreach (var contract in apiResponse.Data)
+                        {
+                            var baseAsset = contract.Name.EndsWith("USDT") ? contract.Name.Replace("USDT", "") : contract.Name;
+                            
+                            var supplyData = new ContractSupplyData
+                            {
+                                Symbol = contract.Name,
+                                BaseAsset = baseAsset,
+                                CirculatingSupply = contract.CirculatingSupply,
+                                TotalSupply = contract.TotalSupply,
+                                MaxSupply = contract.TotalSupply, // API没有MaxSupply字段，使用TotalSupply
+                                LastUpdated = DateTime.UtcNow,
+                                DataSource = "API"
+                            };
+                            
+                            _supplyCache[contract.Name] = supplyData;
+                            loadedCount++;
+                        }
+                        
+                        _lastCacheUpdate = DateTime.UtcNow;
+                        Console.WriteLine($"✅ 从API成功获取 {loadedCount} 个合约的流通量数据");
+                        
+                        // 保存到本地文件作为缓存
+                        await SaveSupplyDataToFileAsync();
+                    }
+                    else
+                    {
+                        Console.WriteLine("❌ API返回数据格式错误");
+                        throw new Exception("API返回数据格式错误");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"❌ API调用失败: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw new Exception($"API调用失败: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "从API获取发行量数据失败");
+                Console.WriteLine($"❌ 从API获取发行量数据失败: {ex.Message}");
+                Console.WriteLine($"🔍 详细错误信息: {ex}");
+                Console.WriteLine($"🌐 尝试访问的URL: {_apiBaseUrl}/api/contract");
+                throw;
             }
         }
 
@@ -129,6 +203,26 @@ namespace BinanceApps.Core.Services
                         CirculatingSupply = 153856150m,
                         TotalSupply = 153856150m,
                         MaxSupply = 200000000m,
+                        LastUpdated = DateTime.UtcNow,
+                        DataSource = "Manual"
+                    },
+                    new ContractSupplyData
+                    {
+                        Symbol = "ADAUSDT",
+                        BaseAsset = "ADA",
+                        CirculatingSupply = 35000000000m,
+                        TotalSupply = 45000000000m,
+                        MaxSupply = 45000000000m,
+                        LastUpdated = DateTime.UtcNow,
+                        DataSource = "Manual"
+                    },
+                    new ContractSupplyData
+                    {
+                        Symbol = "SOLUSDT",
+                        BaseAsset = "SOL",
+                        CirculatingSupply = 450000000m,
+                        TotalSupply = 500000000m,
+                        MaxSupply = 500000000m,
                         LastUpdated = DateTime.UtcNow,
                         DataSource = "Manual"
                     }
@@ -329,5 +423,29 @@ namespace BinanceApps.Core.Services
                 Console.WriteLine($"⚠️ 清理过期数据失败: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// API响应模型
+    /// </summary>
+    public class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public T? Data { get; set; }
+    }
+
+    /// <summary>
+    /// 合约API数据模型
+    /// </summary>
+    public class ContractApiData
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal TotalSupply { get; set; }
+        public decimal CirculatingSupply { get; set; }
+        public string ContractAddress { get; set; } = string.Empty;
+        public string Symbol { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int Decimals { get; set; }
     }
 } 

@@ -38,21 +38,23 @@
         </Grid.ColumnDefinitions>
         
         <!-- 左侧导航菜单 -->
-        <StackPanel Grid.Column="0" Background="#2C3E50" Margin="10">
-            <!-- 标题 -->
-            <TextBlock Text="币安交易助手" 
-                       FontSize="18" FontWeight="Bold" 
-                       Foreground="White" 
-                       HorizontalAlignment="Center" 
-                       Margin="0,10,0,20"/>
+        <Border Grid.Column="0" Background="#2C3E50" Margin="10" CornerRadius="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <!-- 标题 -->
+                    <TextBlock Text="币安交易助手" 
+                               FontSize="16" FontWeight="Bold" 
+                               Foreground="White" 
+                               HorizontalAlignment="Center" 
+                               Margin="0,10,0,15"/>
 
-            <!-- 综合信息仪表板按钮 -->
-            <Button x:Name="btnDashboard" 
-                    Content="📊 综合信息仪表板" 
-                    Height="55" Margin="0,0,0,20"
-                    Background="#0078D4" Foreground="White"
-                    FontSize="15" FontWeight="Bold"
-                    Click="BtnDashboard_Click">
+                    <!-- 综合信息仪表板按钮 -->
+                    <Button x:Name="btnDashboard" 
+                            Content="📊 综合信息仪表板" 
+                            Height="38" Margin="5,0,5,8"
+                            Background="#0078D4" Foreground="White"
+                            FontSize="12" FontWeight="SemiBold"
+                            Click="BtnDashboard_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" 
@@ -68,9 +70,9 @@
             <!-- API设置按钮 -->
             <Button x:Name="btnApiSettings" 
                     Content="API设置" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#E67E22" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnApiSettings_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -89,9 +91,9 @@
             <!-- 市场波动率一览按钮 -->
             <Button x:Name="btnMarketVolatility" 
                     Content="市场波动率一览" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#FF6B35" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnMarketVolatility_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -128,9 +130,9 @@
             <!-- 涨速排行榜按钮 -->
             <Button x:Name="btnPriceSpeedRanking" 
                     Content="涨速排行榜" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#9932CC" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnPriceSpeedRanking_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -147,9 +149,9 @@
             <!-- 高低价位置按钮 -->
             <Button x:Name="btnHighLowPosition" 
                     Content="高低价位置" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#17A2B8" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnCalculateHighLow_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -166,9 +168,9 @@
             <!-- 均线距离分析按钮 -->
             <Button x:Name="btnMaDistanceMenu" 
                     Content="均线距离分析" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#9C27B0" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnMaDistance_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -184,9 +186,9 @@
             <!-- 热点追踪按钮 -->
             <Button x:Name="btnHotspotTrackingMenu" 
                     Content="🔥 热点追踪" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#FF5722" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnHotspotTracking_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -203,9 +205,9 @@
             <!-- 近期涨幅榜追踪按钮 -->
             <Button x:Name="btnGainerTrackingMenu" 
                     Content="📈 近期涨幅榜追踪" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#4CAF50" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnGainerTracking_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -222,9 +224,9 @@
             <!-- 近期跌幅榜追踪按钮 -->
             <Button x:Name="btnLoserTrackingMenu" 
                     Content="📉 近期跌幅榜追踪" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#F44336" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnLoserTracking_Click"
                     ToolTip="监控跌幅榜合约变化">
                 <Button.Template>
@@ -242,9 +244,9 @@
             <!-- 自定义板块监控按钮 -->
             <Button x:Name="btnCustomPortfolioMenu" 
                     Content="自定义板块监控" 
-                    Height="50" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#00BCD4" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="MenuItem_CustomPortfolio_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -261,9 +263,9 @@
             <!-- 市场每日涨幅分布按钮 -->
             <Button x:Name="btnMarketDistribution" 
                     Content="📊 每日涨幅分布" 
-                    Height="55" Margin="0,0,0,15"
+                    Height="38" Margin="5,0,5,8"
                     Background="#00897B" Foreground="White"
-                    FontSize="14" FontWeight="SemiBold"
+                    FontSize="12" FontWeight="SemiBold"
                     Click="BtnMarketDistribution_Click">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -278,16 +280,78 @@
                 </Button.Template>
             </Button>
             
+            <!-- 量比异动选股按钮 -->
+            <Button x:Name="btnVolumeRatio" 
+                    Content="📈 量比异动选股" 
+                    Height="38" Margin="5,0,5,8"
+                    Background="#E91E63" Foreground="White"
+                    FontSize="12" FontWeight="SemiBold"
+                    Click="BtnVolumeRatio_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0"
+                                Padding="10,5">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 小时均线监控按钮 -->
+            <Button x:Name="btnHourlyEmaMonitor" 
+                    Content="⏱️ 小时均线监控" 
+                    Height="38" Margin="5,0,5,8"
+                    Background="#3F51B5" Foreground="White"
+                    FontSize="12" FontWeight="SemiBold"
+                    Click="BtnHourlyEmaMonitor_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0"
+                                Padding="10,5">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- 多任务监控按钮 -->
+            <Button x:Name="btnMultiTaskMonitor" 
+                    Content="🎯 多任务监控" 
+                    Height="38" Margin="5,0,5,8"
+                    Background="#673AB7" Foreground="White"
+                    FontSize="12" FontWeight="SemiBold"
+                    Click="BtnMultiTaskMonitor_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                BorderThickness="0"
+                                Padding="10,5">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
             <!-- 状态信息 -->
-            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,20,0,0">
+            <Border Background="White" CornerRadius="8" Padding="15" Margin="5,15,5,10">
                 <StackPanel>
-                    <TextBlock Text="连接状态" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <TextBlock x:Name="txtConnectionStatus" Text="未连接" Foreground="Red"/>
-                    <TextBlock Text="API密钥" FontWeight="Bold" Margin="0,10,0,5"/>
-                    <TextBlock x:Name="txtApiKey" Text="未设置" Foreground="Gray" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="连接状态" FontWeight="Bold" Margin="0,0,0,10" FontSize="11"/>
+                    <TextBlock x:Name="txtConnectionStatus" Text="未连接" Foreground="Red" FontSize="11"/>
+                    <TextBlock Text="API密钥" FontWeight="Bold" Margin="0,10,0,5" FontSize="11"/>
+                    <TextBlock x:Name="txtApiKey" Text="未设置" Foreground="Gray" TextTrimming="CharacterEllipsis" FontSize="11"/>
                 </StackPanel>
             </Border>
-        </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
         
         <!-- 右侧展示区 -->
         <Border Grid.Column="1" Background="White" Padding="20">

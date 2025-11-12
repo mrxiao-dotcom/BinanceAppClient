@@ -250,6 +250,14 @@ namespace BinanceApps.Core.Services
         }
         
         /// <summary>
+        /// 获取所有缓存的合约信息
+        /// </summary>
+        public Dictionary<string, ContractInfo> GetAllContractInfo()
+        {
+            return new Dictionary<string, ContractInfo>(_contractCache);
+        }
+
+        /// <summary>
         /// 获取合约信息
         /// </summary>
         public ContractInfo? GetContractInfo(string symbol)

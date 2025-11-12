@@ -17,7 +17,7 @@ namespace BinanceApps.Core.Services
             _storageDirectory = storageDirectory;
             _jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true,
+                WriteIndented = false, // 优化：移除缩进以减小文件大小
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
@@ -31,7 +31,7 @@ namespace BinanceApps.Core.Services
         /// <summary>
         /// 获取K线数据文件路径
         /// </summary>
-        private string GetKlineDataFilePath(string symbol)
+        public string GetKlineDataFilePath(string symbol)
         {
             return Path.Combine(_storageDirectory, $"{symbol}.json");
         }
@@ -90,9 +90,9 @@ namespace BinanceApps.Core.Services
         }
 
         /// <summary>
-        /// 从本地文件加载K线数据
+        /// 从本地文件加载K线数据（优化版：减少日志输出）
         /// </summary>
-        public async Task<(List<Kline>? Klines, bool Success, string? ErrorMessage)> LoadKlineDataAsync(string symbol)
+        public async Task<(List<Kline>? Klines, bool Success, string? ErrorMessage)> LoadKlineDataAsync(string symbol, bool verbose = false)
         {
             try
             {
@@ -113,24 +113,86 @@ namespace BinanceApps.Core.Services
                         kline.Symbol = symbol;
                     }
                     
-                    Console.WriteLine($"🔍 加载 {symbol} K线数据: {klineData.Klines.Count} 条，第一条Symbol={klineData.Klines.First().Symbol}");
+                    // 只在verbose模式下输出详细信息
+                    if (verbose)
+                    {
+                        Console.WriteLine($"🔍 加载 {symbol} K线数据: {klineData.Klines.Count} 条");
+                        
+                        // 检查K线数据的时间间隔
+                        if (klineData.Klines.Count >= 2)
+                        {
+                            var firstKline = klineData.Klines.First();
+                            var secondKline = klineData.Klines.Skip(1).First();
+                            var timeDiff = secondKline.OpenTime - firstKline.OpenTime;
+                            
+                            Console.WriteLine($"📊 {symbol} K线时间间隔: {timeDiff.TotalHours:F1} 小时");
+                        }
+                    }
                 }
                 
                 return (klineData?.Klines, true, null);
             }
             catch (Exception ex)
             {
-                // 详细打印错误信息而不是抛出异常
-                Console.WriteLine($"❌ 加载 {symbol} K线数据失败:");
-                Console.WriteLine($"   🔍 错误类型: {ex.GetType().Name}");
-                Console.WriteLine($"   📝 错误信息: {ex.Message}");
-                Console.WriteLine($"   📍 错误位置: {ex.StackTrace?.Split('\n').FirstOrDefault()}");
-                Console.WriteLine($"   📁 文件路径: {GetKlineDataFilePath(symbol)}");
-                Console.WriteLine();
+                if (verbose)
+                {
+                    Console.WriteLine($"❌ 加载 {symbol} K线数据失败: {ex.Message}");
+                }
                 
-                // 返回失败信息而不是抛出异常
                 return (null, false, ex.Message);
             }
+        }
+        
+        /// <summary>
+        /// 批量并行加载K线数据（性能优化版）
+        /// </summary>
+        public async Task<Dictionary<string, List<Kline>>> LoadKlineDataBatchAsync(
+            List<string> symbols, 
+            int maxDegreeOfParallelism = 20,
+            Action<int, int>? progressCallback = null)
+        {
+            var result = new Dictionary<string, List<Kline>>();
+            var resultLock = new object();
+            var completedCount = 0;
+            var totalCount = symbols.Count;
+
+            Console.WriteLine($"📦 开始批量加载 {totalCount} 个合约的K线数据...");
+            
+            await Parallel.ForEachAsync(symbols, 
+                new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism },
+                async (symbol, cancellationToken) =>
+                {
+                    try
+                    {
+                        var (klines, success, _) = await LoadKlineDataAsync(symbol, verbose: false);
+                        
+                        if (success && klines != null && klines.Count > 0)
+                        {
+                            lock (resultLock)
+                            {
+                                result[symbol] = klines;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单个文件加载失败
+                    }
+                    finally
+                    {
+                        var completed = Interlocked.Increment(ref completedCount);
+                        
+                        // 每10%或每50个报告一次进度
+                        if (completed % 50 == 0 || completed % (totalCount / 10 + 1) == 0)
+                        {
+                            Console.WriteLine($"📊 加载进度: {completed}/{totalCount} ({completed * 100 / totalCount}%)");
+                            progressCallback?.Invoke(completed, totalCount);
+                        }
+                    }
+                });
+
+            Console.WriteLine($"✅ 批量加载完成: 成功加载 {result.Count}/{totalCount} 个合约");
+            return result;
         }
 
         /// <summary>
@@ -200,7 +262,7 @@ namespace BinanceApps.Core.Services
                 
                 if (loadSuccess && existingKlines != null && existingKlines.Count > 0)
                 {
-                    // 有本地数据 - 检查是否有缺失
+                    // 有本地数据 - 检查是否有缺失（日线按日期检查）
                     var sortedDates = existingKlines
                         .Select(k => k.OpenTime.Date)
                         .Distinct()
@@ -222,7 +284,7 @@ namespace BinanceApps.Core.Services
                         if (nextDate > expectedNextDate)
                         {
                             firstGapDate = expectedNextDate;
-                            var gapDays = (nextDate - currentDate).Days - 1;
+                            var gapDays = (int)(nextDate - currentDate).TotalDays - 1;
                             Console.WriteLine($"⚠️ 发现数据缺失: {currentDate:yyyy-MM-dd} 到 {nextDate:yyyy-MM-dd} 之间缺失 {gapDays} 天");
                             break;
                         }
@@ -254,7 +316,7 @@ namespace BinanceApps.Core.Services
                 }
                 
                 // 2. 检查是否需要下载
-                var daysToDownload = (DateTime.Today - startDate).Days + 1;
+                var daysToDownload = (int)(DateTime.Today - startDate.Date).Days + 1;
                 
                 if (daysToDownload <= 0)
                 {
@@ -280,10 +342,10 @@ namespace BinanceApps.Core.Services
                         var taskObject = hasTimeRangeMethod.Invoke(apiClient, new object[] 
                         { 
                             symbol, 
-                            KlineInterval.OneDay, 
+                            KlineInterval.OneDay, // 使用日线
                             startDate,
-                            DateTime.Today.AddDays(1), // 包含今天
-                            Math.Min(daysToDownload + 5, 1000) // 稍微多下载几天以防万一
+                            DateTime.Now, // 包含当前时间
+                            daysToDownload // 使用天数
                         });
                         
                         if (taskObject is Task<List<Kline>> task)
@@ -298,15 +360,14 @@ namespace BinanceApps.Core.Services
                     catch (Exception ex)
                     {
                         Console.WriteLine($"⚠️ 使用时间范围方法失败，降级到原有方法: {ex.Message}");
-                        var limit = Math.Min(daysToDownload + 5, 1000);
+                        var limit = daysToDownload * 24 + 24; // 转换为小时数（日线数据按24小时计算）
                         newKlines = await apiClient.GetKlinesAsync(symbol, KlineInterval.OneDay, limit);
                     }
                 }
                 else
                 {
                     // 降级使用原有方法
-                    var limit = Math.Min(daysToDownload + 5, 1000);
-                    newKlines = await apiClient.GetKlinesAsync(symbol, KlineInterval.OneDay, limit);
+                    newKlines = await apiClient.GetKlinesAsync(symbol, KlineInterval.OneDay, daysToDownload);
                 }
                 
                 if (newKlines == null || newKlines.Count == 0)

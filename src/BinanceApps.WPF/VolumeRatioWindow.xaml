@@ -1,0 +1,342 @@
+<Window x:Class="BinanceApps.WPF.VolumeRatioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BinanceApps.WPF"
+        Title="量比异动选股" Height="800" Width="1400"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+    
+    <Window.Resources>
+        <local:PriceChangeColorConverter x:Key="PriceChangeColorConverter"/>
+        <local:VolumeRatioColorConverter x:Key="VolumeRatioColorConverter"/>
+        <local:MaDistanceColorConverter x:Key="MaDistanceColorConverter"/>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 筛选条件区域 -->
+        <Border Grid.Row="0" Background="White" CornerRadius="8" Padding="20" Margin="10,10,10,5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 标题 -->
+                <TextBlock Grid.Row="0" Text="量比异动选股" 
+                           FontSize="24" FontWeight="Bold" 
+                           Foreground="#333333" Margin="0,0,0,20"/>
+                
+                <!-- 筛选条件 -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- 流通市值筛选 -->
+                    <StackPanel Grid.Column="0" Margin="0,0,15,0">
+                        <TextBlock Text="流通市值范围(万)" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtMinMarketCap" Grid.Column="0" 
+                                     Text="0" Margin="0,0,5,0" 
+                                     ToolTip="最小流通市值(万)"/>
+                            <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" Margin="5,0"/>
+                            <TextBox x:Name="txtMaxMarketCap" Grid.Column="2" 
+                                     Text="100000" Margin="5,0,0,0"
+                                     ToolTip="最大流通市值(万)"/>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- 量比筛选 -->
+                    <StackPanel Grid.Column="1" Margin="0,0,15,0">
+                        <TextBlock Text="量比范围" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtMinVolumeRatio" Grid.Column="0" 
+                                     Text="0.1" Margin="0,0,5,0"
+                                     ToolTip="最小量比"/>
+                            <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" Margin="5,0"/>
+                            <TextBox x:Name="txtMaxVolumeRatio" Grid.Column="2" 
+                                     Text="10" Margin="5,0,0,0"
+                                     ToolTip="最大量比"/>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- 24H成交额筛选 -->
+                    <StackPanel Grid.Column="2" Margin="0,0,15,0">
+                        <TextBlock Text="24H成交额范围(万)" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtMin24HVolume" Grid.Column="0" 
+                                     Text="100" Margin="0,0,5,0"
+                                     ToolTip="最小24H成交额(万)"/>
+                            <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" Margin="5,0"/>
+                            <TextBox x:Name="txtMax24HVolume" Grid.Column="2" 
+                                     Text="100000" Margin="5,0,0,0"
+                                     ToolTip="最大24H成交额(万)"/>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- 均线距离和多空选择 -->
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="均线距离设置" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- 距离百分比 -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
+                                <TextBlock Text="距离:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox x:Name="txtMaDistance" Text="3" Width="60" Margin="0,0,5,0"/>
+                                <TextBlock Text="%" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- 均线周期 -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,5">
+                                <TextBlock Text="均线周期:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox x:Name="txtMaPeriod" Text="26" Width="60" Margin="0,0,5,0"/>
+                                <TextBlock Text="小时" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- 同侧K线数量 -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,5">
+                                <TextBlock Text="同侧K线数:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox x:Name="txtSameSideCount" Text="10" Width="60" Margin="0,0,5,0"/>
+                                <TextBlock Text="根" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- 多空选择 -->
+                            <StackPanel Grid.Row="3" Orientation="Horizontal">
+                                <RadioButton x:Name="rbLong" Content="多头" IsChecked="True" Margin="0,0,15,0"/>
+                                <RadioButton x:Name="rbShort" Content="空头"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+                
+                <!-- 操作按钮 -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                    <Button x:Name="btnSearch" Content="🔍 检索" 
+                            Width="140" Height="40" 
+                            Background="#007ACC" Foreground="White"
+                            FontSize="16" FontWeight="Bold"
+                            Click="BtnSearch_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="btnClear" Content="清空条件" 
+                            Width="120" Height="40" 
+                            Background="#6C757D" Foreground="White"
+                            FontSize="16" FontWeight="Bold"
+                            Click="BtnClear_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="btnExport" Content="导出结果" 
+                            Width="120" Height="40" 
+                            Background="#28A745" Foreground="White"
+                            FontSize="16" FontWeight="Bold"
+                            Click="BtnExport_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- 结果列表区域 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="10" Margin="10,5,10,5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 结果标题和监控按钮 -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Grid.Column="0" x:Name="txtResultTitle" 
+                               Text="检索结果" FontSize="18" FontWeight="Bold" 
+                               Foreground="#333333" VerticalAlignment="Center"/>
+                    
+                    <Button Grid.Column="1" x:Name="btnMonitor" Content="开始监控" 
+                            Width="120" Height="35" Background="#28A745" 
+                            Foreground="White" FontWeight="Bold" 
+                            Click="BtnMonitor_Click"/>
+                </Grid>
+                
+                <!-- 结果列表和监控列表 -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="300"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- 主结果列表 -->
+                    <DataGrid Grid.Column="0" x:Name="dgResults" 
+                              AutoGenerateColumns="False" 
+                              CanUserAddRows="False" 
+                              CanUserDeleteRows="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              AlternatingRowBackground="#F8F9FA"
+                              RowHeaderWidth="0"
+                              SelectionMode="Single"
+                              MouseDoubleClick="DgResults_MouseDoubleClick">
+                    
+                    <DataGrid.Columns>
+                        <!-- 合约名 -->
+                        <DataGridTextColumn Header="合约名" Binding="{Binding Symbol}" 
+                                            Width="120" FontWeight="Bold"/>
+                        
+                        <!-- 24H涨幅 -->
+                        <DataGridTextColumn Header="24H涨幅" Binding="{Binding PriceChangePercent, StringFormat=F2}" 
+                                            Width="100">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{Binding PriceChangePercent, Converter={StaticResource PriceChangeColorConverter}}"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <!-- 24H成交额(万) -->
+                        <DataGridTextColumn Header="24H成交额(万)" Binding="{Binding Volume24H, StringFormat=F2}" 
+                                            Width="120"/>
+                        
+                        <!-- 流通市值(万) -->
+                        <DataGridTextColumn Header="流通市值(万)" Binding="{Binding CirculatingMarketCap, StringFormat=F2}" 
+                                            Width="120"/>
+                        
+                        <!-- 总市值(万) -->
+                        <DataGridTextColumn Header="总市值(万)" Binding="{Binding TotalMarketCap, StringFormat=F2}" 
+                                            Width="120"/>
+                        
+                        <!-- 流通率 -->
+                        <DataGridTextColumn Header="流通率" Binding="{Binding CirculatingRatio, StringFormat=P2}" 
+                                            Width="80"/>
+                        
+                        <!-- 量比 -->
+                        <DataGridTextColumn Header="量比" Binding="{Binding VolumeRatio, StringFormat=F2}" 
+                                            Width="80" FontWeight="Bold">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{Binding VolumeRatio, Converter={StaticResource VolumeRatioColorConverter}}"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <!-- 26小时均线距离 -->
+                        <DataGridTextColumn Header="26H均线距离" Binding="{Binding MaDistancePercent, StringFormat=F2}" 
+                                            Width="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{Binding MaDistancePercent, Converter={StaticResource MaDistanceColorConverter}}"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        
+                        <!-- 最新价格 -->
+                        <DataGridTextColumn Header="最新价格" Binding="{Binding LastPrice, StringFormat=F8}" 
+                                            Width="120"/>
+                        
+                        <!-- 26小时均线价格 -->
+                        <DataGridTextColumn Header="26H均线价格" Binding="{Binding Ma26Price, StringFormat=F8}" 
+                                            Width="120"/>
+                        
+                        <!-- 同侧K线数收 -->
+                        <DataGridTextColumn Header="同侧K线数收" Binding="{Binding SameSideCloseCount}" 
+                                            Width="100" FontWeight="Bold"/>
+                        
+                        <!-- 同侧K线数最 -->
+                        <DataGridTextColumn Header="同侧K线数最" Binding="{Binding SameSideExtremeCount}" 
+                                            Width="100" FontWeight="Bold"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                
+                <!-- 分隔线 -->
+                <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" 
+                              Background="#E0E0E0" Width="1"/>
+                
+                <!-- 距离监控列表 -->
+                <Border Grid.Column="2" Background="#F8F9FA" CornerRadius="5" Padding="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 监控列表标题 -->
+                        <TextBlock Grid.Row="0" Text="符合距离监控列表" 
+                                   FontSize="14" FontWeight="Bold" 
+                                   Foreground="#333333" Margin="0,0,0,10"/>
+                        
+                        <!-- 监控列表 -->
+                        <DataGrid Grid.Row="1" x:Name="dgMonitorResults" 
+                                  AutoGenerateColumns="False" 
+                                  CanUserAddRows="False" 
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  AlternatingRowBackground="#FFFFFF"
+                                  RowHeaderWidth="0"
+                                  SelectionMode="Single"
+                                  MouseDoubleClick="DgMonitorResults_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="合约名" Binding="{Binding Symbol}" 
+                                                    Width="100" FontWeight="Bold"/>
+                                <DataGridTextColumn Header="距离" Binding="{Binding MaDistancePercent, StringFormat=F2}" 
+                                                    Width="60">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding MaDistancePercent, Converter={StaticResource MaDistanceColorConverter}}"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="时间" Binding="{Binding UpdateTime, StringFormat=HH:mm:ss}" 
+                                                    Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                </Grid>
+            </Grid>
+        </Border>
+        
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Background="#F8F9FA" Height="30">
+            <StatusBarItem>
+                <TextBlock x:Name="txtStatus" Text="就绪" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="txtLastUpdate" Text="" FontSize="10" Foreground="Gray"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

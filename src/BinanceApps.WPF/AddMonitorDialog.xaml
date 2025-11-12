@@ -1,0 +1,70 @@
+<Window x:Class="BinanceApps.WPF.AddMonitorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="添加监控" Height="280" Width="380"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F5F5F5">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 合约名称 -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="合约名称:" Margin="0,0,0,5"/>
+            <TextBox x:Name="txtSymbol" Height="30" 
+                     ToolTip="例如：BTCUSDT"/>
+        </StackPanel>
+
+        <!-- 选入价格 -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock Text="选入价格:" Margin="0,0,0,5"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="txtEntryPrice" Height="30"
+                         ToolTip="当前价格" Margin="0,0,5,0"/>
+                <Button Grid.Column="1" x:Name="btnGetPrice" Content="获取价格" 
+                        Width="80" Height="30"
+                        Background="#28A745" Foreground="White"
+                        FontSize="12"
+                        Click="BtnGetPrice_Click"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- 监控类型 -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,15">
+            <TextBlock Text="监控类型:" Margin="0,0,0,5"/>
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="rbLong" Content="多头" 
+                             IsChecked="True" 
+                             VerticalAlignment="Center" 
+                             Margin="0,0,20,0"/>
+                <RadioButton x:Name="rbShort" Content="空头" 
+                             VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 按钮 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" 
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="btnOk" Content="确定" 
+                    Width="80" Height="35"
+                    Background="#007BFF" Foreground="White"
+                    FontWeight="Bold"
+                    Click="BtnOk_Click"/>
+            <Button x:Name="btnCancel" Content="取消" 
+                    Width="80" Height="35"
+                    Background="#6C757D" Foreground="White"
+                    FontWeight="Bold" Margin="10,0,0,0"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
+
